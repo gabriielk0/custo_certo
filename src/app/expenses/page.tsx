@@ -57,12 +57,12 @@ export default function ExpensesPage() {
 
   const handleEdit = (expense: Despesa) => {
     setEditingExpense(expense);
-    form.reset(expense);
+    form.reset({...expense, id: String(expense.id)});
     setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
-    await deleteExpense(id);
+    await deleteExpense(Number(id));
     const updatedExpenses = await getExpenses();
     setExpenses(updatedExpenses);
   };
@@ -110,7 +110,7 @@ export default function ExpensesPage() {
                   <DropdownMenuItem onSelect={() => handleEdit(expense)}>
                     <Pencil className="mr-2 h-4 w-4" /> Editar
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => handleDelete(expense.id)} className="text-red-600">
+                  <DropdownMenuItem onSelect={() => handleDelete(String(expense.id))} className="text-red-600">
                     <Trash2 className="mr-2 h-4 w-4" /> Deletar
                   </DropdownMenuItem>
                 </DropdownMenuContent>

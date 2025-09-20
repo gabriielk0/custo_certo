@@ -8,12 +8,12 @@ export type Ingrediente = {
 };
 
 export type IngredienteDaReceita = {
-  ingrediente_id: string;
+  ingrediente_id: number;
   quantidade: number;
 };
 
 export type Receita = {
-  id: string;
+  id: number;
   nome: string;
   rendimento: number;
   peso_bruto: number;
@@ -24,23 +24,22 @@ export type Receita = {
 
 export type ItemDoPrato = {
   // Can be an ingredient or a recipe
-  item_id: string;
+  item_id: number;
   // 'ingredient' or 'recipe'
   tipo_item: 'ingredient' | 'recipe';
   quantidade: number;
 };
 
 export type Prato = {
-  id: string;
+  id: number;
   nome: string;
   custo_total: number;
   preco_venda: number;
   itens: ItemDoPrato[];
 };
 
-
 export type Despesa = {
-  id: string;
+  id: number;
   descricao: string;
   valor: number;
   tipo: 'fixed' | 'variable';
