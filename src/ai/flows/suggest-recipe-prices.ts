@@ -9,7 +9,7 @@
  * - SuggestRecipePricesOutput - The return type for the suggestRecipePrices function.
  */
 
-import {ai} from '@genkit-ai/core';
+import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const SuggestRecipePricesInputSchema = z.object({
@@ -66,18 +66,14 @@ Desired Profit Margin: {{desiredProfitMargin}}
 Consider all these factors carefully and provide a suggested price range and reasoning.`,
 });
 
-interface SuggestRecipePricesFlowInput extends SuggestRecipePricesInput {}
-
-interface SuggestRecipePricesFlowOutput extends SuggestRecipePricesOutput {}
-
 const suggestRecipePricesFlow = ai.defineFlow(
-    {
-        name: 'suggestRecipePricesFlow',
-        inputSchema: SuggestRecipePricesInputSchema,
-        outputSchema: SuggestRecipePricesOutputSchema,
-    },
-    async (input: SuggestRecipePricesFlowInput): Promise<SuggestRecipePricesFlowOutput> => {
-        const {output} = await prompt(input);
-        return output!;
-    }
+  {
+    name: 'suggestRecipePricesFlow',
+    inputSchema: SuggestRecipePricesInputSchema,
+    outputSchema: SuggestRecipePricesOutputSchema,
+  },
+  async input => {
+    const {output} = await prompt(input);
+    return output!;
+  }
 );

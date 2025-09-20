@@ -1,7 +1,12 @@
 'use client';
 
-import * as React from 'react';
-import { Pie, PieChart, ResponsiveContainer, Cell } from 'recharts';
+import {
+  Bar,
+  BarChart,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import {
   Card,
   CardContent,
@@ -15,78 +20,70 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import { expenses as expenseData } from '@/lib/data';
 
-const COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
+const data = [
+  { name: 'Jan', revenue: 4000, expenses: 2400 },
+  { name: 'Fev', revenue: 3000, expenses: 1398 },
+  { name: 'Mar', revenue: 2000, expenses: 9800 },
+  { name: 'Abr', revenue: 2780, expenses: 3908 },
+  { name: 'Mai', revenue: 1890, expenses: 4800 },
+  { name: 'Jun', revenue: 2390, expenses: 3800 },
+  { name: 'Jul', revenue: 3490, expenses: 4300 },
 ];
 
-export function ExpensesPieChart() {
-  const data = React.useMemo(() => {
-    const categoryTotals: { [key: string]: number } = {};
-    expenseData.forEach((expense) => {
-      if (categoryTotals[expense.category]) {
-        categoryTotals[expense.category] += expense.amount;
-      } else {
-        categoryTotals[expense.category] = expense.amount;
-      }
-    });
+const chartConfig = {
+  revenue: {
+    label: 'Faturamento',
+    color: 'hsl(var(--chart-1))',
+  },
+  expenses: {
+    label: 'Gastos',
+    color: 'hsl(var(--chart-2))',
+  },
+} satisfies ChartConfig;
 
-    return Object.keys(categoryTotals).map((category, index) => ({
-      name: category,
-      value: categoryTotals[category],
-      fill: COLORS[index % COLORS.length],
-    }));
-  }, []);
-
-  const chartConfig = React.useMemo(() => {
-    const config: ChartConfig = {};
-    data.forEach((item) => {
-      config[item.name] = {
-        label: item.name,
-        color: item.fill,
-      };
-    });
-    return config;
-  }, [data]);
-
+export function OverviewChart() {
   return (
-    <Card>
+    <Card className="col-span-1 lg:col-span-2">
       <CardHeader>
-        <CardTitle>Despesas por Categoria</CardTitle>
-        <CardDescription>
-          Distribuição dos gastos no último mês.
-        </CardDescription>
+        <CardTitle>Visão Geral</CardTitle>
+        <CardDescription>Faturamento e gastos dos últimos meses.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto aspect-square max-h-[350px]"
-        >
+      <CardContent className="pl-2">
+        <ChartContainer config={chartConfig} className="h-[350px] w-full">
           <ResponsiveContainer width="100%" height={350}>
-            <PieChart>
+            <BarChart data={data}>
+              <XAxis
+                dataKey="name"
+                stroke="#888888"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                stroke="#888888"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => `R$${value / 1000}k`}
+              />
               <ChartTooltip
                 cursor={{ fill: 'hsl(var(--muted))' }}
                 content={<ChartTooltipContent />}
               />
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                outerRadius={120}
-                dataKey="value"
-                nameKey="name"
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-              </Pie>
-            </PieChart>
+              <Bar
+                dataKey="revenue"
+                fill="var(--color-revenue)"
+                radius={[4, 4, 0, 0]}
+                name="Faturamento"
+              />
+              <Bar
+                dataKey="expenses"
+                fill="var(--color-expenses)"
+                radius={[4, 4, 0, 0]}
+                name="Gastos"
+              />
+            </BarChart>
           </ResponsiveContainer>
         </ChartContainer>
       </CardContent>

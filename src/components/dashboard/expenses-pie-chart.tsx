@@ -15,7 +15,8 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import { expenses as expenseData } from '@/lib/data';
+import { getExpenses } from '@/lib/data';
+import type { Despesa } from '@/lib/types';
 
 const COLORS = [
   'hsl(var(--chart-1))',
@@ -26,13 +27,19 @@ const COLORS = [
 ];
 
 export function ExpensesPieChart() {
+  const [expenseData, setExpenseData] = React.useState<Despesa[]>([]);
+
+  React.useEffect(() => {
+    getExpenses().then(setExpenseData);
+  }, []);
+
   const data = React.useMemo(() => {
     const categoryTotals: { [key: string]: number } = {};
     expenseData.forEach((expense) => {
-      if (categoryTotals[expense.category]) {
-        categoryTotals[expense.category] += expense.amount;
+      if (categoryTotals[expense.categoria]) {
+        categoryTotals[expense.categoria] += expense.valor;
       } else {
-        categoryTotals[expense.category] = expense.amount;
+        categoryTotals[expense.categoria] = expense.valor;
       }
     });
 
@@ -41,7 +48,7 @@ export function ExpensesPieChart() {
       value: categoryTotals[category],
       fill: COLORS[index % COLORS.length],
     }));
-  }, []);
+  }, [expenseData]);
 
   const chartConfig = React.useMemo(() => {
     const config: ChartConfig = {};

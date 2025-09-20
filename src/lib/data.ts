@@ -1,95 +1,121 @@
-import type { Ingredient, Recipe, Expense, Dish } from './types';
+"use server";
+import "server-only";
 
-export const ingredients: Ingredient[] = [
-  { id: '1', name: 'Arroz Cru', price: 20, packageSize: 5000, unit: 'g', costPerUnit: 0.004 },
-  { id: '2', name: 'Feijão Cru', price: 8, packageSize: 1000, unit: 'g', costPerUnit: 0.008 },
-  { id: '3', name: 'Óleo de Soja', price: 9, packageSize: 900, unit: 'ml', costPerUnit: 0.01 },
-  { id: '4', name: 'Alho', price: 15, packageSize: 1000, unit: 'g', costPerUnit: 0.015 },
-  { id: '5', name: 'Sal', price: 3, packageSize: 1000, unit: 'g', costPerUnit: 0.003 },
-  { id: '6', name: 'Patinho moído', price: 40, packageSize: 1000, unit: 'kg', costPerUnit: 40 },
-  { id: '7', name: 'Batata Palha', price: 15, packageSize: 500, unit: 'g', costPerUnit: 0.03 },
-  { id: '8', name: 'Creme de Leite', price: 4, packageSize: 200, unit: 'g', costPerUnit: 0.02 },
-  { id: '9', name: 'Extrato de Tomate', price: 5, packageSize: 340, unit: 'g', costPerUnit: 0.0147 },
-];
+import type { Ingrediente, Receita, Despesa, Prato } from './types';
+import { db } from './db';
+import { revalidatePath } from 'next/cache';
 
-export const recipes: Recipe[] = [
-  {
-    id: 'R1',
-    name: 'Arroz Cozido',
-    yield: 1,
-    grossWeight: 1000,
-    unit: 'kg',
-    totalCost: 2.18,
-    ingredients: [
-      { ingredientId: '1', quantity: 500 }, // Arroz
-      { ingredientId: '3', quantity: 10 }, // Óleo
-      { ingredientId: '4', quantity: 5 }, // Alho
-      { ingredientId: '5', quantity: 5 }, // Sal
-    ],
-  },
-  {
-    id: 'R2',
-    name: 'Feijão Cozido',
-    yield: 1,
-    grossWeight: 1200,
-    unit: 'kg',
-    totalCost: 8.23,
-    ingredients: [
-      { ingredientId: '2', quantity: 1000 }, // Feijão
-      { ingredientId: '4', quantity: 10 }, // Alho
-      { ingredientId: '5', quantity: 8 }, // Sal
-    ],
-  },
-  {
-    id: 'R3',
-    name: 'Carne Moída Refogada',
-    yield: 0.8,
-    grossWeight: 1000,
-    unit: 'kg',
-    totalCost: 40.3,
-    ingredients: [
-      { ingredientId: '6', quantity: 1 }, // Patinho moído (1kg)
-      { ingredientId: '3', quantity: 20 }, // Óleo
-      { ingredientId: '4', quantity: 5 }, // Alho
-      { ingredientId: '5', quantity: 5 }, // Sal
-    ],
-  },
-  {
-    id: 'R4',
-    name: 'Estrogonofe de Carne',
-    yield: 1.2,
-    grossWeight: 1200,
-    unit: 'kg',
-    totalCost: 49.31,
-    ingredients: [
-      { ingredientId: '6', quantity: 1 }, // Patinho moído (1kg)
-      { ingredientId: '8', quantity: 400 }, // Creme de Leite (2 caixas)
-      { ingredientId: '9', quantity: 340 }, // Extrato de Tomate (1 lata)
-      { ingredientId: '3', quantity: 20 }, // Óleo
-      { ingredientId: '4', quantity: 5 }, // Alho
-      { ingredientId: '5', quantity: 5 }, // Sal
-    ]
-  }
-];
+// Type guard for RowDataPacket
+function isRowDataPacket(row: any): row is any[] {
+    return Array.isArray(row);
+}
 
-export const dishes: Dish[] = [
-    {
-        id: 'D1',
-        name: 'PF de Estrogonofe',
-        totalCost: 15.65,
-        sellingPrice: 29.90,
-        items: [
-            { itemId: 'R1', itemType: 'recipe', quantity: 200 }, // 200g de Arroz Cozido
-            { itemId: 'R4', itemType: 'recipe', quantity: 300 }, // 300g de Estrogonofe
-            { itemId: '7', itemType: 'ingredient', quantity: 50 } // 50g de Batata Palha
-        ]
-    }
-]
+// Ingredients
+export async function getIngredients(): Promise<Ingrediente[]> {
+    const [rows] = await db.query('SELECT * FROM ingredientes');
+    if (!isRowDataPacket(rows)) return [];
+    const ingredients = rows as Ingrediente[];
+    return ingredients.map(i => ({...i, custoPorUnidade: Number(i.preco) / Number(i.tam_pacote)}));
+}
 
-export const expenses: Expense[] = [
-  { id: '1', description: 'Aluguel', amount: 3000, type: 'fixed', category: 'Imóvel', date: '2023-05-01' },
-  { id: '2', description: 'Conta de Luz', amount: 450, type: 'fixed', category: 'Utilities', date: '2023-05-10' },
-  { id: '3', description: 'Conta de Água', amount: 200, type: 'fixed', category: 'Utilities', date: '2023-05-12' },
-  { id: '4', description: 'Marketing Digital', amount: 800, type: 'variable', category: 'Marketing', date: '2023-05-15' },
-  { id: '5', description: 'Manutenção de Equipamento', amount: 500, type: 'variable', category: 'Manutenção', date: '2023-05-20' },
-];
+export async function addIngredient(data: Omit<Ingrediente, 'id' | 'custoPorUnidade'>) {
+    await db.query('INSERT INTO ingredientes (nome, preco, tam_pacote, unit) VALUES (?, ?, ?, ?)', [data.nome, data.preco, data.tam_pacote, data.unit]);
+    revalidatePath('/ingredients');
+    revalidatePath('/dishes');
+    revalidatePath('/recipes');
+}
+
+export async function updateIngredient(id: number, data: Omit<Ingrediente, 'id' | 'custoPorUnidade'>) {
+    await db.query('UPDATE ingredientes SET nome = ?, preco = ?, tam_pacote = ?, unit = ? WHERE id = ?', [data.nome, data.preco, data.tam_pacote, data.unit, id]);
+    revalidatePath('/ingredients');
+    revalidatePath('/dishes');
+    revalidatePath('/recipes');
+}
+
+export async function deleteIngredient(id: number) {
+    await db.query('DELETE FROM ingredientes WHERE id = ?', [id]);
+    revalidatePath('/ingredients');
+    revalidatePath('/dishes');
+    revalidatePath('/recipes');
+}
+
+// Recipes
+export async function getRecipes(): Promise<Receita[]> {
+    const [rows] = await db.query('SELECT * FROM receitas');
+    if (!isRowDataPacket(rows)) return [];
+    const recipes = rows as any[];
+    return recipes.map(r => ({...r, ingredientes: JSON.parse(r.ingredientes)}));
+}
+
+export async function addRecipe(data: Omit<Receita, 'id'>) {
+    const id = `R${new Date().getTime()}`;
+    await db.query('INSERT INTO receitas (id, nome, rendimento, peso_bruto, unidade, custo_total, ingredientes) VALUES (?, ?, ?, ?, ?, ?, ?)', [id, data.nome, data.rendimento, data.peso_bruto, data.unidade, data.custo_total, JSON.stringify(data.ingredientes)]);
+    revalidatePath('/recipes');
+    revalidatePath('/dishes');
+}
+
+export async function updateRecipe(id: string, data: Omit<Receita, 'id'>) {
+    await db.query('UPDATE receitas SET nome = ?, rendimento = ?, peso_bruto = ?, unidade = ?, custo_total = ?, ingredientes = ? WHERE id = ?', [data.nome, data.rendimento, data.peso_bruto, data.unidade, data.custo_total, JSON.stringify(data.ingredientes), id]);
+    revalidatePath('/recipes');
+    revalidatePath('/dishes');
+}
+
+export async function deleteRecipe(id: string) {
+    await db.query('DELETE FROM receitas WHERE id = ?', [id]);
+    revalidatePath('/recipes');
+    revalidatePath('/dishes');
+}
+
+// Dishes
+export async function getDishes(): Promise<Prato[]> {
+    const [rows] = await db.query('SELECT * FROM pratos');
+     if (!isRowDataPacket(rows)) return [];
+    const dishes = rows as any[];
+    return dishes.map(d => ({...d, itens: JSON.parse(d.itens)}));
+}
+
+export async function addDish(data: Omit<Prato, 'id'>) {
+    const id = `D${new Date().getTime()}`;
+    await db.query('INSERT INTO pratos (id, nome, custo_total, preco_venda, itens) VALUES (?, ?, ?, ?, ?)', [id, data.nome, data.custo_total, data.preco_venda, JSON.stringify(data.itens)]);
+    revalidatePath('/dishes');
+}
+
+export async function updateDish(id: string, data: Omit<Prato, 'id'>) {
+    await db.query('UPDATE pratos SET nome = ?, custo_total = ?, preco_venda = ?, itens = ? WHERE id = ?', [data.nome, data.custo_total, data.preco_venda, JSON.stringify(data.itens), id]);
+    revalidatePath('/dishes');
+}
+
+export async function deleteDish(id: string) {
+    await db.query('DELETE FROM pratos WHERE id = ?', [id]);
+    revalidatePath('/dishes');
+}
+
+// Expenses
+export async function getExpenses(): Promise<Despesa[]> {
+    const [rows] = await db.query('SELECT * FROM despesas');
+    if (!isRowDataPacket(rows)) return [];
+    return rows as Despesa[];
+}
+
+export async function addExpense(data: Omit<Despesa, 'id'>) {
+    const id = `E${new Date().getTime()}`;
+    await db.query('INSERT INTO despesas (id, descricao, valor, tipo, categoria, data) VALUES (?, ?, ?, ?, ?, ?)', [id, data.descricao, data.valor, data.tipo, data.categoria, data.data]);
+    revalidatePath('/expenses');
+}
+
+export async function updateExpense(id: string, data: Omit<Despesa, 'id'>) {
+    await db.query('UPDATE despesas SET descricao = ?, valor = ?, tipo = ?, categoria = ?, data = ? WHERE id = ?', [data.descricao, data.valor, data.tipo, data.categoria, data.data, id]);
+    revalidatePath('/expenses');
+}
+
+export async function deleteExpense(id: string) {
+    await db.query('DELETE FROM despesas WHERE id = ?', [id]);
+    revalidatePath('/expenses');
+}
+
+// Used for client components
+export async function getAllIngredientsAndRecipes() {
+    const ingredients = await getIngredients();
+    const recipes = await getRecipes();
+    return { ingredients, recipes };
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PlusCircle, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,48 +17,54 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { expenses as initialExpenses } from "@/lib/data";
-import type { Expense } from "@/lib/types";
+import { getExpenses, addExpense, updateExpense, deleteExpense } from "@/lib/data";
+import type { Despesa } from "@/lib/types";
 
 const expenseSchema = z.object({
   id: z.string().optional(),
-  description: z.string().min(1, "Descrição é obrigatória"),
-  amount: z.coerce.number().min(0, "Valor deve ser positivo"),
-  type: z.enum(["fixed", "variable"]),
-  category: z.string().min(1, "Categoria é obrigatória"),
-  date: z.string().min(1, "Data é obrigatória"),
+  descricao: z.string().min(1, "Descrição é obrigatória"),
+  valor: z.coerce.number().min(0, "Valor deve ser positivo"),
+  tipo: z.enum(["fixed", "variable"]),
+  categoria: z.string().min(1, "Categoria é obrigatória"),
+  data: z.string().min(1, "Data é obrigatória"),
 });
 
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState<Expense[]>(initialExpenses);
+  const [expenses, setExpenses] = useState<Despesa[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Despesa | null>(null);
+
+  useEffect(() => {
+    getExpenses().then(setExpenses);
+  }, []);
 
   const form = useForm<z.infer<typeof expenseSchema>>({
     resolver: zodResolver(expenseSchema),
   });
 
-  const onSubmit = (data: z.infer<typeof expenseSchema>) => {
+  const onSubmit = async (data: z.infer<typeof expenseSchema>) => {
     if (editingExpense) {
-      setExpenses(
-        expenses.map((e) => (e.id === editingExpense.id ? { ...e, ...data } : e))
-      );
+      await updateExpense(editingExpense.id, data);
     } else {
-      setExpenses([...expenses, { ...data, id: new Date().toISOString() }]);
+      await addExpense(data);
     }
+    const updatedExpenses = await getExpenses();
+    setExpenses(updatedExpenses);
     setEditingExpense(null);
     form.reset();
     setIsDialogOpen(false);
   };
 
-  const handleEdit = (expense: Expense) => {
+  const handleEdit = (expense: Despesa) => {
     setEditingExpense(expense);
     form.reset(expense);
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setExpenses(expenses.filter((e) => e.id !== id));
+  const handleDelete = async (id: string) => {
+    await deleteExpense(id);
+    const updatedExpenses = await getExpenses();
+    setExpenses(updatedExpenses);
   };
   
   const handleOpenChange = (open: boolean) => {
@@ -85,12 +91,12 @@ export default function ExpensesPage() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {expenses.filter(e => e.type === type).map((expense) => (
+        {expenses.filter(e => e.tipo === type).map((expense) => (
           <TableRow key={expense.id}>
-            <TableCell className="font-medium">{expense.description}</TableCell>
-            <TableCell>{formatCurrency(expense.amount)}</TableCell>
-            <TableCell>{expense.category}</TableCell>
-            <TableCell>{format(new Date(expense.date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+            <TableCell className="font-medium">{expense.descricao}</TableCell>
+            <TableCell>{formatCurrency(expense.valor)}</TableCell>
+            <TableCell>{expense.categoria}</TableCell>
+            <TableCell>{format(new Date(expense.data), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
             <TableCell>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -142,18 +148,18 @@ export default function ExpensesPage() {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="space-y-1">
-                  <Label htmlFor="description">Descrição</Label>
-                  <Input id="description" {...form.register("description")} />
-                  {form.formState.errors.description && <p className="text-red-500 text-xs">{form.formState.errors.description.message}</p>}
+                  <Label htmlFor="descricao">Descrição</Label>
+                  <Input id="descricao" {...form.register("descricao")} />
+                  {form.formState.errors.descricao && <p className="text-red-500 text-xs">{form.formState.errors.descricao.message}</p>}
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="amount">Valor</Label>
-                  <Input id="amount" type="number" step="0.01" {...form.register("amount")} />
-                  {form.formState.errors.amount && <p className="text-red-500 text-xs">{form.formState.errors.amount.message}</p>}
+                  <Label htmlFor="valor">Valor</Label>
+                  <Input id="valor" type="number" step="0.01" {...form.register("valor")} />
+                  {form.formState.errors.valor && <p className="text-red-500 text-xs">{form.formState.errors.valor.message}</p>}
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="type">Tipo</Label>
-                  <Controller name="type" control={form.control} render={({ field }) => (
+                  <Label htmlFor="tipo">Tipo</Label>
+                  <Controller name="tipo" control={form.control} render={({ field }) => (
                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                         <SelectContent>
@@ -162,17 +168,17 @@ export default function ExpensesPage() {
                         </SelectContent>
                       </Select>
                   )} />
-                   {form.formState.errors.type && <p className="text-red-500 text-xs">{form.formState.errors.type.message}</p>}
+                   {form.formState.errors.tipo && <p className="text-red-500 text-xs">{form.formState.errors.tipo.message}</p>}
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="category">Categoria</Label>
-                  <Input id="category" {...form.register("category")} />
-                  {form.formState.errors.category && <p className="text-red-500 text-xs">{form.formState.errors.category.message}</p>}
+                  <Label htmlFor="categoria">Categoria</Label>
+                  <Input id="categoria" {...form.register("categoria")} />
+                  {form.formState.errors.categoria && <p className="text-red-500 text-xs">{form.formState.errors.categoria.message}</p>}
                 </div>
                  <div className="space-y-1">
-                  <Label htmlFor="date">Data</Label>
-                  <Input id="date" type="date" {...form.register("date")} />
-                  {form.formState.errors.date && <p className="text-red-500 text-xs">{form.formState.errors.date.message}</p>}
+                  <Label htmlFor="data">Data</Label>
+                  <Input id="data" type="date" {...form.register("data")} />
+                  {form.formState.errors.data && <p className="text-red-500 text-xs">{form.formState.errors.data.message}</p>}
                 </div>
               </div>
               <DialogFooter>

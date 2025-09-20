@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PlusCircle, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,76 +15,82 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { recipes as initialRecipes, ingredients as allIngredients } from "@/lib/data";
-import type { Recipe } from "@/lib/types";
+import { getRecipes, getIngredients, addRecipe, updateRecipe, deleteRecipe } from "@/lib/data";
+import type { Receita, Ingrediente } from "@/lib/types";
 
 const recipeIngredientSchema = z.object({
-  ingredientId: z.string().min(1),
-  quantity: z.coerce.number().min(0.01),
+  ingrediente_id: z.string().min(1),
+  quantidade: z.coerce.number().min(0.01),
 });
 
 const recipeSchema = z.object({
   id: z.string().optional(),
-  name: z.string().min(1, "Nome é obrigatório"),
-  yield: z.coerce.number().min(0, "Rendimento deve ser positivo"),
-  grossWeight: z.coerce.number().min(0, "Peso bruto deve ser positivo"),
-  unit: z.enum(["kg", "l", "un"]),
-  ingredients: z.array(recipeIngredientSchema).min(1, "Adicione pelo menos um ingrediente"),
+  nome: z.string().min(1, "Nome é obrigatório"),
+  rendimento: z.coerce.number().min(0, "Rendimento deve ser positivo"),
+  peso_bruto: z.coerce.number().min(0, "Peso bruto deve ser positivo"),
+  unidade: z.enum(["kg", "l", "un"]),
+  ingredientes: z.array(recipeIngredientSchema).min(1, "Adicione pelo menos um ingrediente"),
 });
 
 export default function RecipesPage() {
-  const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
+  const [recipes, setRecipes] = useState<Receita[]>([]);
+  const [allIngredients, setAllIngredients] = useState<Ingrediente[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+  const [editingRecipe, setEditingRecipe] = useState<Receita | null>(null);
+
+  useEffect(() => {
+    getRecipes().then(setRecipes);
+    getIngredients().then(setAllIngredients);
+  }, []);
 
   const form = useForm<z.infer<typeof recipeSchema>>({
     resolver: zodResolver(recipeSchema),
     defaultValues: {
-      ingredients: [{ ingredientId: "", quantity: 0 }],
+      ingredientes: [{ ingrediente_id: "", quantidade: 0 }],
     },
   });
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
-    name: "ingredients",
+    name: "ingredientes",
   });
 
-  const onSubmit = (data: z.infer<typeof recipeSchema>) => {
-    const totalCost = data.ingredients.reduce((acc, item) => {
-      const ingredient = allIngredients.find(i => i.id === item.ingredientId);
-      return acc + (ingredient ? ingredient.costPerUnit * item.quantity : 0);
+  const onSubmit = async (data: z.infer<typeof recipeSchema>) => {
+    const custo_total = data.ingredientes.reduce((acc, item) => {
+      const ingredient = allIngredients.find(i => i.id.toString() === item.ingrediente_id);
+      return acc + (ingredient ? ingredient.valorunit * item.quantidade : 0);
     }, 0);
 
+    const recipeData = { ...data, custo_total };
+
     if (editingRecipe) {
-      setRecipes(
-        recipes.map((r) =>
-          r.id === editingRecipe.id ? { ...r, ...data, totalCost } : r
-        )
-      );
+      await updateRecipe(editingRecipe.id, recipeData as Omit<Receita, 'id'>);
     } else {
-      setRecipes([
-        ...recipes,
-        { ...data, id: `R${new Date().getTime()}`, totalCost },
-      ]);
+      await addRecipe(recipeData as Omit<Receita, 'id'>);
     }
+    
+    const updatedRecipes = await getRecipes();
+    setRecipes(updatedRecipes);
     setEditingRecipe(null);
-    form.reset({ name: '', yield: 0, grossWeight: 0, unit: 'kg', ingredients: [{ ingredientId: "", quantity: 0 }] });
+    form.reset({ nome: '', rendimento: 0, peso_bruto: 0, unidade: 'kg', ingredientes: [{ ingrediente_id: "", quantidade: 0 }] });
     setIsDialogOpen(false);
   };
 
-  const handleEdit = (recipe: Recipe) => {
+  const handleEdit = (recipe: Receita) => {
     setEditingRecipe(recipe);
     form.reset(recipe);
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setRecipes(recipes.filter((r) => r.id !== id));
+  const handleDelete = async (id: string) => {
+    await deleteRecipe(id);
+    const updatedRecipes = await getRecipes();
+    setRecipes(updatedRecipes);
   };
   
   const handleOpenChange = (open: boolean) => {
     if(!open) {
-      form.reset({ name: '', yield: 0, grossWeight: 0, unit: 'kg', ingredients: [{ ingredientId: "", quantity: 0 }] });
+      form.reset({ nome: '', rendimento: 0, peso_bruto: 0, unidade: 'kg', ingredientes: [{ ingrediente_id: "", quantidade: 0 }] });
       setEditingRecipe(null);
     }
     setIsDialogOpen(open);
@@ -121,23 +127,23 @@ export default function RecipesPage() {
               <ScrollArea className="h-[60vh] p-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="name">Nome da Receita</Label>
-                    <Input id="name" {...form.register("name")} />
-                    {form.formState.errors.name && <p className="text-red-500 text-xs mt-1">{form.formState.errors.name.message}</p>}
+                    <Label htmlFor="nome">Nome da Receita</Label>
+                    <Input id="nome" {...form.register("nome")} />
+                    {form.formState.errors.nome && <p className="text-red-500 text-xs mt-1">{form.formState.errors.nome.message}</p>}
                   </div>
                   <div>
-                    <Label htmlFor="yield">Fator de Rendimento</Label>
-                    <Input id="yield" type="number" step="0.1" {...form.register("yield")} />
-                     {form.formState.errors.yield && <p className="text-red-500 text-xs mt-1">{form.formState.errors.yield.message}</p>}
+                    <Label htmlFor="rendimento">Fator de Rendimento</Label>
+                    <Input id="rendimento" type="number" step="0.1" {...form.register("rendimento")} />
+                     {form.formState.errors.rendimento && <p className="text-red-500 text-xs mt-1">{form.formState.errors.rendimento.message}</p>}
                   </div>
                   <div>
-                    <Label htmlFor="grossWeight">Peso Total Bruto</Label>
-                    <Input id="grossWeight" type="number" step="10" {...form.register("grossWeight")} />
-                     {form.formState.errors.grossWeight && <p className="text-red-500 text-xs mt-1">{form.formState.errors.grossWeight.message}</p>}
+                    <Label htmlFor="peso_bruto">Peso Total Bruto</Label>
+                    <Input id="peso_bruto" type="number" step="10" {...form.register("peso_bruto")} />
+                     {form.formState.errors.peso_bruto && <p className="text-red-500 text-xs mt-1">{form.formState.errors.peso_bruto.message}</p>}
                   </div>
                   <div>
-                    <Label htmlFor="unit">Unidade de Medida</Label>
-                     <Controller name="unit" control={form.control} render={({ field }) => (
+                    <Label htmlFor="unidade">Unidade de Medida</Label>
+                     <Controller name="unidade" control={form.control} render={({ field }) => (
                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione" />
@@ -149,7 +155,7 @@ export default function RecipesPage() {
                           </SelectContent>
                         </Select>
                     )} />
-                     {form.formState.errors.unit && <p className="text-red-500 text-xs mt-1">{form.formState.errors.unit.message}</p>}
+                     {form.formState.errors.unidade && <p className="text-red-500 text-xs mt-1">{form.formState.errors.unidade.message}</p>}
                   </div>
                 </div>
 
@@ -159,28 +165,28 @@ export default function RecipesPage() {
                     <div key={item.id} className="flex gap-2 items-end mb-2">
                        <div className="flex-1">
                           <Label>Ingrediente Cru</Label>
-                          <Controller name={`ingredients.${index}.ingredientId`} control={form.control} render={({ field }) => (
+                          <Controller name={`ingredientes.${index}.ingrediente_id`} control={form.control} render={({ field }) => (
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                               <SelectContent>
-                                {allIngredients.map(ing => <SelectItem key={ing.id} value={ing.id}>{ing.name} ({ing.id})</SelectItem>)}
+                                {allIngredients.map(ing => <SelectItem key={ing.id} value={ing.id.toString()}>{ing.nome} ({ing.id})</SelectItem>)}
                               </SelectContent>
                             </Select>
                           )} />
                        </div>
                        <div className="w-32">
-                          <Label>Qtd ({allIngredients.find(i => i.id === form.watch(`ingredients.${index}.ingredientId`))?.unit})</Label>
-                          <Input type="number" {...form.register(`ingredients.${index}.quantity`)} />
+                          <Label>Qtd ({allIngredients.find(i => i.id.toString() === form.watch(`ingredientes.${index}.ingrediente_id`))?.unit})</Label>
+                          <Input type="number" {...form.register(`ingredientes.${index}.quantidade`)} />
                        </div>
                        <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}>
                           <Trash2 className="h-4 w-4" />
                        </Button>
                     </div>
                   ))}
-                  <Button type="button" variant="outline" size="sm" onClick={() => append({ ingredientId: "", quantity: 0 })}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => append({ ingrediente_id: "", quantidade: 0 })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Ingrediente
                   </Button>
-                  {form.formState.errors.ingredients && <p className="text-red-500 text-xs mt-1">{form.formState.errors.ingredients.message || form.formState.errors.ingredients.root?.message}</p>}
+                  {form.formState.errors.ingredientes && <p className="text-red-500 text-xs mt-1">{form.formState.errors.ingredientes.message || form.formState.errors.ingredientes.root?.message}</p>}
                 </div>
               </ScrollArea>
               <DialogFooter className="mt-4">
@@ -215,11 +221,11 @@ export default function RecipesPage() {
               {recipes.map((recipe) => (
                 <TableRow key={recipe.id}>
                   <TableCell className="font-mono text-xs">{recipe.id}</TableCell>
-                  <TableCell className="font-medium">{recipe.name}</TableCell>
-                  <TableCell>{formatCurrency(recipe.totalCost)}</TableCell>
-                  <TableCell>{recipe.yield}</TableCell>
-                  <TableCell>{recipe.grossWeight}</TableCell>
-                  <TableCell>{recipe.unit}</TableCell>
+                  <TableCell className="font-medium">{recipe.nome}</TableCell>
+                  <TableCell>{formatCurrency(recipe.custo_total)}</TableCell>
+                  <TableCell>{recipe.rendimento}</TableCell>
+                  <TableCell>{recipe.peso_bruto}</TableCell>
+                  <TableCell>{recipe.unidade}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

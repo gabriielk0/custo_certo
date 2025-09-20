@@ -1,49 +1,49 @@
-export type Ingredient = {
-  id: string;
-  name: string;
-  price: number;
-  packageSize: number;
+export type Ingrediente = {
+  id: number;
+  nome: string;
+  preco: number;
+  tam_pacote: number;
   unit: 'g' | 'kg' | 'ml' | 'l' | 'un';
-  costPerUnit: number;
+  valorunit: number;
 };
 
-export type RecipeIngredient = {
-  ingredientId: string;
-  quantity: number;
+export type IngredienteDaReceita = {
+  ingrediente_id: string;
+  quantidade: number;
 };
 
-export type Recipe = {
+export type Receita = {
   id: string;
-  name: string;
-  yield: number;
-  grossWeight: number;
-  unit: 'kg' | 'l' | 'un';
-  totalCost: number;
-  ingredients: RecipeIngredient[];
+  nome: string;
+  rendimento: number;
+  peso_bruto: number;
+  unidade: 'kg' | 'l' | 'un';
+  custo_total: number;
+  ingredientes: IngredienteDaReceita[];
 };
 
-export type DishItem = {
+export type ItemDoPrato = {
   // Can be an ingredient or a recipe
-  itemId: string;
+  item_id: string;
   // 'ingredient' or 'recipe'
-  itemType: 'ingredient' | 'recipe';
-  quantity: number;
+  tipo_item: 'ingredient' | 'recipe';
+  quantidade: number;
 };
 
-export type Dish = {
+export type Prato = {
   id: string;
-  name: string;
-  totalCost: number;
-  sellingPrice: number;
-  items: DishItem[];
+  nome: string;
+  custo_total: number;
+  preco_venda: number;
+  itens: ItemDoPrato[];
 };
 
 
-export type Expense = {
+export type Despesa = {
   id: string;
-  description: string;
-  amount: number;
-  type: 'fixed' | 'variable';
-  category: string;
-  date: string;
+  descricao: string;
+  valor: number;
+  tipo: 'fixed' | 'variable';
+  categoria: string;
+  data: string;
 };

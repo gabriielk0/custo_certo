@@ -1,95 +1,58 @@
 'use client';
 
-import * as React from 'react';
-import { Pie, PieChart, ResponsiveContainer, Cell } from 'recharts';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart';
-import { expenses as expenseData } from '@/lib/data';
+import { DollarSign, MinusCircle, TrendingUp } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-const COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
-];
+export function StatsCards() {
+  const totalRevenue = 125430.5;
+  const totalExpenses = 45230.25;
+  const totalProfit = totalRevenue - totalExpenses;
 
-export function ExpensesPieChart() {
-  const data = React.useMemo(() => {
-    const categoryTotals: { [key: string]: number } = {};
-    expenseData.forEach((expense) => {
-      if (categoryTotals[expense.category]) {
-        categoryTotals[expense.category] += expense.amount;
-      } else {
-        categoryTotals[expense.category] = expense.amount;
-      }
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
     });
-
-    return Object.keys(categoryTotals).map((category, index) => ({
-      name: category,
-      value: categoryTotals[category],
-      fill: COLORS[index % COLORS.length],
-    }));
-  }, []);
-
-  const chartConfig = React.useMemo(() => {
-    const config: ChartConfig = {};
-    data.forEach((item) => {
-      config[item.name] = {
-        label: item.name,
-        color: item.fill,
-      };
-    });
-    return config;
-  }, [data]);
+  };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Despesas por Categoria</CardTitle>
-        <CardDescription>
-          Distribuição dos gastos no último mês.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto aspect-square max-h-[350px]"
-        >
-          <ResponsiveContainer width="100%" height={350}>
-            <PieChart>
-              <ChartTooltip
-                cursor={{ fill: 'hsl(var(--muted))' }}
-                content={<ChartTooltipContent />}
-              />
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                outerRadius={120}
-                dataKey="value"
-                nameKey="name"
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-      </CardContent>
-    </Card>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Faturamento Total</CardTitle>
+          <DollarSign className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+          <p className="text-xs text-muted-foreground">
+            +20.1% em relação ao mês passado
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Gasto Total</CardTitle>
+          <MinusCircle className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div>
+          <p className="text-xs text-muted-foreground">
+            +18.1% em relação ao mês passado
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Lucro Total</CardTitle>
+          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{formatCurrency(totalProfit)}</div>
+          <p className="text-xs text-muted-foreground">
+            +22.1% em relação ao mês passado
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

@@ -63,122 +63,200 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
-import {
-  dishes as initialDishes,
-  recipes as allRecipes,
-  ingredients as allIngredients,
-} from "@/lib/data";
-import type { Dish, Recipe } from "@/lib/types";
+import type { Prato, Receita, Ingrediente } from "@/lib/types";
 
+/* Schemas (sem alterações) */
 const dishItemSchema = z.object({
-  itemId: z.string().min(1),
-  itemType: z.enum(["ingredient", "recipe"]),
-  quantity: z.coerce.number().min(0.01),
+  item_id: z.string().min(1),
+  tipo_item: z.enum(["ingredient", "recipe"]),
+  quantidade: z.coerce.number().min(0.01),
 });
 
 const dishSchema = z.object({
   id: z.string().optional(),
-  name: z.string().min(1, "Nome é obrigatório"),
-  sellingPrice: z.coerce.number().min(0, "Preço deve ser positivo"),
-  items: z.array(dishItemSchema).min(1, "Adicione pelo menos um item"),
+  nome: z.string().min(1, "Nome é obrigatório"),
+  preco_venda: z.coerce.number().min(0, "Preço deve ser positivo"),
+  itens: z.array(dishItemSchema).min(1, "Adicione pelo menos um item"),
 });
 
-const allItems = [
-  ...allIngredients.map((i) => ({ ...i, type: "ingredient" as const })),
-  ...allRecipes.map((r) => ({ ...r, type: "recipe" as const })),
-];
+/* Client-side fetch helpers (substituem import de funções server) */
+async function fetchDishes(): Promise<Prato[]> {
+  const res = await fetch("/api/dishes");
+  if (!res.ok) throw new Error("Falha ao buscar pratos");
+  return res.json();
+}
+
+async function fetchIngredientsAndRecipes(): Promise<{ ingredients: Ingrediente[]; recipes: Receita[] }> {
+  // busca separada para ser mais compatível com APIs comuns
+  const [rIng, rRec] = await Promise.all([fetch("/api/ingredients"), fetch("/api/recipes")]);
+  if (!rIng.ok || !rRec.ok) throw new Error("Falha ao buscar ingredientes ou receitas");
+  const ingredients = await rIng.json();
+  const recipes = await rRec.json();
+  return { ingredients, recipes };
+}
+
+async function createDishApi(dish: Omit<Prato, "id">) {
+  const res = await fetch("/api/dishes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dish),
+  });
+  if (!res.ok) throw new Error("Falha ao criar prato");
+  return res.json();
+}
+
+async function updateDishApi(id: string, dish: Omit<Prato, "id">) {
+  const res = await fetch(`/api/dishes/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dish),
+  });
+  if (!res.ok) throw new Error("Falha ao atualizar prato");
+  return res.json();
+}
+
+async function deleteDishApi(id: string) {
+  const res = await fetch(`/api/dishes/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Falha ao deletar prato");
+  return true;
+}
 
 export default function DishesPage() {
-  const [dishes, setDishes] = useState<Dish[]>(initialDishes);
+  const [dishes, setDishes] = useState<Prato[]>([]);
+  const [allItems, setAllItems] = useState<(Ingrediente | Receita)[]>([]);
+  const [allIngredients, setAllIngredients] = useState<Ingrediente[]>([]);
+  const [allRecipes, setAllRecipes] = useState<Receita[]>([]);
+
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingDish, setEditingDish] = useState<Dish | null>(null);
-  const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
+  const [editingDish, setEditingDish] = useState<Prato | null>(null);
+  const [selectedDish, setSelectedDish] = useState<Prato | null>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [dishesData, itemsData] = await Promise.all([
+          fetchDishes(),
+          fetchIngredientsAndRecipes(),
+        ]);
+        setDishes(dishesData);
+        setAllIngredients(itemsData.ingredients);
+        setAllRecipes(itemsData.recipes);
+        setAllItems([...itemsData.ingredients, ...itemsData.recipes]);
+      } catch (err) {
+        console.warn("Erro ao carregar dados de pratos:", err);
+        setDishes([]);
+        setAllIngredients([]);
+        setAllRecipes([]);
+        setAllItems([]);
+      }
+    }
+    fetchData();
+  }, []);
 
   const form = useForm<z.infer<typeof dishSchema>>({
     resolver: zodResolver(dishSchema),
     defaultValues: {
-      items: [{ itemId: "", itemType: "recipe", quantity: 0 }],
-      sellingPrice: 0,
+      itens: [{ item_id: "", tipo_item: "recipe", quantidade: 0 }],
+      preco_venda: 0,
     },
   });
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
-    name: "items",
+    name: "itens",
   });
   
-  const watchedItems = form.watch("items");
-  const watchedSellingPrice = form.watch("sellingPrice");
+  const watchedItems = form.watch("itens");
+  const watchedSellingPrice = form.watch("preco_venda");
 
-  const totalCost = watchedItems.reduce((acc, item) => {
-    if (!item.itemId || !item.quantity) return acc;
+  const custo_total = watchedItems.reduce((acc, item) => {
+    if (!item.item_id || !item.quantidade) return acc;
     const selectedItem = allItems.find(
-      (i) => i.id === item.itemId && i.type === item.itemType
+      (i) => String((i as any).id) === String(item.item_id) && (('custoPorUnidade' in i) ? 'ingredient' : 'recipe') === item.tipo_item
     );
     if (!selectedItem) return acc;
 
     let itemCostPerUnit = 0;
-    if (selectedItem.type === "ingredient") {
-      itemCostPerUnit = selectedItem.costPerUnit;
-    } else {
-      const recipeItem = selectedItem as Recipe;
-      itemCostPerUnit = recipeItem.yield > 0 ? recipeItem.totalCost / recipeItem.yield : 0;
+    if ('custoPorUnidade' in selectedItem) { // It's an Ingredient
+      itemCostPerUnit = (selectedItem as Ingrediente).valorunit ?? 0;
+    } else { // It's a Recipe
+      const rec = selectedItem as Receita;
+      itemCostPerUnit = rec.rendimento > 0 ? (rec.custo_total ?? 0) / rec.rendimento : 0;
     }
 
-    return acc + itemCostPerUnit * item.quantity;
+    return acc + itemCostPerUnit * (item.quantidade ?? 0);
   }, 0);
   
-  const profitMargin = watchedSellingPrice > 0 ? (watchedSellingPrice - totalCost) / watchedSellingPrice : 0;
+  const profitMargin = watchedSellingPrice > 0 ? (watchedSellingPrice - custo_total) / watchedSellingPrice : 0;
   
   const handleMarginChange = (margin: number) => {
-    if (totalCost > 0) {
-        const newPrice = totalCost / (1 - margin);
-        form.setValue("sellingPrice", parseFloat(newPrice.toFixed(2)));
+    if (custo_total > 0) {
+        const newPrice = custo_total / (1 - margin);
+        form.setValue("preco_venda", parseFloat(newPrice.toFixed(2)));
     }
   };
 
+  const onSubmit = async (data: z.infer<typeof dishSchema>) => {
+    const dishData = { ...data, custo_total };
 
-  const onSubmit = (data: z.infer<typeof dishSchema>) => {
-    const dishData = { ...data, totalCost };
-
-    if (editingDish) {
-      setDishes(dishes.map((d) => (d.id === editingDish.id ? { ...dishData, id: editingDish.id } : d)));
-    } else {
-      setDishes([...dishes, { ...dishData, id: `D${new Date().getTime()}` }]);
+    try {
+      if (editingDish && editingDish.id) {
+        await updateDishApi(String(editingDish.id), dishData as Omit<Prato, 'id'>);
+      } else {
+        await createDishApi(dishData as Omit<Prato, 'id'>);
+      }
+      const updatedDishes = await fetchDishes();
+      setDishes(updatedDishes);
+      setEditingDish(null);
+      form.reset({
+        nome: "",
+        preco_venda: 0,
+        itens: [{ item_id: "", tipo_item: "recipe", quantidade: 0 }],
+      });
+      setIsFormOpen(false);
+    } catch (err) {
+      console.error("Erro ao salvar prato:", err);
+      // aqui você pode mostrar toast / mensagem de erro
     }
-    
-    setEditingDish(null);
-    form.reset({
-      name: "",
-      sellingPrice: 0,
-      items: [{ itemId: "", itemType: "recipe", quantity: 0 }],
-    });
-    setIsFormOpen(false);
   };
 
-  const handleEdit = (dish: Dish) => {
+  const handleEdit = (dish: Prato) => {
     setEditingDish(dish);
-    form.reset(dish);
+    // form.reset espera valores no mesmo shape do schema; garante que itens sejam strings
+    form.reset({
+      id: String(dish.id),
+      nome: dish.nome,
+      preco_venda: dish.preco_venda,
+      itens: (dish.itens || []).map(it => ({ ...it, item_id: String(it.item_id) })),
+    });
     setIsFormOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setDishes(dishes.filter((r) => r.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteDishApi(String(id));
+      const updatedDishes = await fetchDishes();
+      setDishes(updatedDishes);
+    } catch (err) {
+      console.error("Erro ao deletar prato:", err);
+    }
   };
 
   const handleOpenForm = (open: boolean) => {
     if (!open) {
       form.reset({
-        name: "",
-        sellingPrice: 0,
-        items: [{ itemId: "", itemType: "recipe", quantity: 0 }],
+        nome: "",
+        preco_venda: 0,
+        itens: [{ item_id: "", tipo_item: "recipe", quantidade: 0 }],
       });
       setEditingDish(null);
     }
     setIsFormOpen(open);
   };
 
-  const handleSelectDish = (dish: Dish) => {
+  const handleSelectDish = (dish: Prato) => {
     setSelectedDish(dish);
   };
 
@@ -187,27 +265,24 @@ export default function DishesPage() {
   };
   
   const formatPercent = (value: number) => {
-    return value.toLocaleString("pt-BR", { style: 'percent', minimumFractionDigits: 2 });
+    return (value).toLocaleString("pt-BR", { style: 'percent', minimumFractionDigits: 2 });
   }
 
-  const AnalysisPanel = ({ dish }: { dish: Dish }) => {
-    const initialMargin = dish.sellingPrice > 0 ? (dish.sellingPrice - dish.totalCost) / dish.sellingPrice : 0.3;
-    const [desiredMargin, setDesiredMargin] = useState(initialMargin > 0 ? initialMargin : 0.3);
-
+  const AnalysisPanel = ({ dish }: { dish: Prato }) => {
     if (!dish) return null;
+    const initialMargin = dish.preco_venda > 0 ? (dish.preco_venda - dish.custo_total) / dish.preco_venda : 0.3;
+    const [desiredMargin, setDesiredMargin] = useState(initialMargin > 0 ? initialMargin : 0.3);
     
-    // Análise com Preço Praticado
-    const actualProfit = dish.sellingPrice - dish.totalCost;
-    const actualProfitMargin = dish.sellingPrice > 0 ? actualProfit / dish.sellingPrice : 0;
+    const actualProfit = dish.preco_venda - dish.custo_total;
+    const actualProfitMargin = dish.preco_venda > 0 ? actualProfit / dish.preco_venda : 0;
     
-    // Análise com Preço Sugerido
-    const suggestedPrice = dish.totalCost / (1 - desiredMargin);
-    const suggestedProfit = suggestedPrice - dish.totalCost;
+    const suggestedPrice = dish.custo_total / (1 - desiredMargin);
+    const suggestedProfit = suggestedPrice - dish.custo_total;
 
     return (
        <div className="flex flex-col h-full">
         <SheetHeader className="p-6 border-b">
-          <SheetTitle>Análise do Prato: {dish.name}</SheetTitle>
+          <SheetTitle>Análise do Prato: {dish.nome}</SheetTitle>
           <SheetDescription>
             Análise de custos, lucros e sugestão de preço.
           </SheetDescription>
@@ -221,11 +296,11 @@ export default function DishesPage() {
                 <CardContent className="space-y-4">
                     <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Preço de Venda (Praticado)</span>
-                        <span className="font-bold text-lg">{formatCurrency(dish.sellingPrice)}</span>
+                        <span className="font-bold text-lg">{formatCurrency(dish.preco_venda)}</span>
                     </div>
                      <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Custo Total dos Insumos</span>
-                        <span className="font-bold text-lg">{formatCurrency(dish.totalCost)}</span>
+                        <span className="font-bold text-lg">{formatCurrency(dish.custo_total)}</span>
                     </div>
                     <hr/>
                     <div className="flex justify-between items-center">
@@ -328,20 +403,20 @@ export default function DishesPage() {
               <ScrollArea className="h-[60vh] p-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="lg:col-span-1">
-                    <Label htmlFor="name">Nome do Prato</Label>
-                    <Input id="name" {...form.register("name")} />
-                    {form.formState.errors.name && (
+                    <Label htmlFor="nome">Nome do Prato</Label>
+                    <Input id="nome" {...form.register("nome")} />
+                    {form.formState.errors.nome && (
                       <p className="text-red-500 text-xs mt-1">
-                        {form.formState.errors.name.message}
+                        {form.formState.errors.nome.message}
                       </p>
                     )}
                   </div>
                   <div className="lg:col-span-1">
-                    <Label htmlFor="sellingPrice">Preço de Venda (R$)</Label>
-                    <Input id="sellingPrice" type="number" step="0.01" {...form.register("sellingPrice")} />
-                    {form.formState.errors.sellingPrice && (
+                    <Label htmlFor="preco_venda">Preço de Venda (R$)</Label>
+                    <Input id="preco_venda" type="number" step="0.01" {...form.register("preco_venda")} />
+                    {form.formState.errors.preco_venda && (
                       <p className="text-red-500 text-xs mt-1">
-                        {form.formState.errors.sellingPrice.message}
+                        {form.formState.errors.preco_venda.message}
                       </p>
                     )}
                   </div>
@@ -365,42 +440,42 @@ export default function DishesPage() {
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="font-semibold">Itens do Prato</h3>
                      <div className="text-sm">
-                      Custo Total: <span className="font-bold">{formatCurrency(totalCost)}</span>
+                      Custo Total: <span className="font-bold">{formatCurrency(custo_total)}</span>
                     </div>
                   </div>
                   {fields.map((item, index) => {
                     const selectedItem = allItems.find(
-                      (i) => i.id === watchedItems[index]?.itemId && i.type === watchedItems[index]?.itemType
+                      (i) => String((i as any).id) === String(watchedItems[index]?.item_id) && (('custoPorUnidade' in i) ? 'ingredient' : 'recipe') === watchedItems[index]?.tipo_item
                     );
                     let itemCostPerUnit = 0;
                     if (selectedItem) {
-                      if (selectedItem.type === 'ingredient') {
-                        itemCostPerUnit = selectedItem.costPerUnit;
-                      } else {
-                        const recipeItem = selectedItem as Recipe;
-                        itemCostPerUnit = recipeItem.yield > 0 ? recipeItem.totalCost / recipeItem.yield : 0;
+                      if ('custoPorUnidade' in selectedItem) { // Ingredient
+                        itemCostPerUnit = (selectedItem as Ingrediente).valorunit ?? 0;
+                      } else { // Recipe
+                        const rec = selectedItem as Receita;
+                        itemCostPerUnit = rec.rendimento > 0 ? (rec.custo_total ?? 0) / rec.rendimento : 0;
                       }
                     }
-                    const itemTotalCost = itemCostPerUnit * (watchedItems[index]?.quantity || 0);
+                    const itemTotalCost = itemCostPerUnit * (watchedItems[index]?.quantidade || 0);
 
                     return (
                       <div key={item.id} className="flex gap-2 items-end mb-2">
                         <div className="flex-1">
                           <Label>Item (Ingrediente ou Receita)</Label>
                           <Controller
-                            name={`items.${index}.itemId`}
+                            name={`itens.${index}.item_id`}
                             control={form.control}
                             render={({ field }) => (
                               <Select
                                 onValueChange={(value) => {
                                   const [id, type] = value.split("|");
                                   form.setValue(
-                                    `items.${index}.itemType`,
+                                    `itens.${index}.tipo_item`,
                                     type as "ingredient" | "recipe"
                                   );
                                   field.onChange(id);
                                 }}
-                                defaultValue={field.value ? `${field.value}|${form.watch(`items.${index}.itemType`)}` : ""}
+                                defaultValue={field.value ? `${field.value}|${form.watch(`itens.${index}.tipo_item`)}` : ""}
                               >
                                 <SelectTrigger>
                                   <SelectValue placeholder="Selecione..." />
@@ -408,18 +483,18 @@ export default function DishesPage() {
                                 <SelectContent>
                                   {allIngredients.map((ing) => (
                                     <SelectItem
-                                      key={ing.id}
+                                      key={String(ing.id)}
                                       value={`${ing.id}|ingredient`}
                                     >
-                                      {ing.name} (Ingrediente Cru)
+                                      {ing.nome} (Ingrediente Cru)
                                     </SelectItem>
                                   ))}
                                   {allRecipes.map((rec) => (
                                     <SelectItem
-                                      key={rec.id}
+                                      key={String(rec.id)}
                                       value={`${rec.id}|recipe`}
                                     >
-                                      {rec.name} (Receita)
+                                      {rec.nome} (Receita)
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -432,7 +507,7 @@ export default function DishesPage() {
                           <Input
                             type="number"
                             step="0.1"
-                            {...form.register(`items.${index}.quantity`)}
+                            {...form.register(`itens.${index}.quantidade` as const)}
                           />
                         </div>
                         <div className="w-28">
@@ -460,15 +535,15 @@ export default function DishesPage() {
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      append({ itemId: "", itemType: "recipe", quantity: 0 })
+                      append({ item_id: "", tipo_item: "recipe", quantidade: 0 })
                     }
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Item
                   </Button>
-                  {form.formState.errors.items && (
+                  {form.formState.errors.itens && (
                     <p className="text-red-500 text-xs mt-1">
-                      {form.formState.errors.items.message ||
-                        form.formState.errors.items.root?.message}
+                      {form.formState.errors.itens.message ||
+                        (form.formState.errors.itens as any)?.root?.message}
                     </p>
                   )}
                 </div>
@@ -504,13 +579,13 @@ export default function DishesPage() {
             </TableHeader>
             <TableBody>
               {dishes.map((dish) => {
-                const profit = dish.sellingPrice - dish.totalCost;
+                const profit = dish.preco_venda - dish.custo_total;
                 return (
-                <TableRow key={dish.id}>
-                  <TableCell className="font-mono text-xs">{dish.id}</TableCell>
-                  <TableCell className="font-medium">{dish.name}</TableCell>
-                  <TableCell>{formatCurrency(dish.totalCost)}</TableCell>
-                  <TableCell className="font-semibold">{formatCurrency(dish.sellingPrice)}</TableCell>
+                <TableRow key={String(dish.id)}>
+                  <TableCell className="font-mono text-xs">{String(dish.id)}</TableCell>
+                  <TableCell className="font-medium">{dish.nome}</TableCell>
+                  <TableCell>{formatCurrency(dish.custo_total)}</TableCell>
+                  <TableCell className="font-semibold">{formatCurrency(dish.preco_venda)}</TableCell>
                    <TableCell className={profit >= 0 ? 'text-green-600' : 'text-red-600'}>
                     {formatCurrency(profit)}
                   </TableCell>
@@ -542,7 +617,7 @@ export default function DishesPage() {
                             <Pencil className="mr-2 h-4 w-4" /> Editar
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onSelect={() => handleDelete(dish.id)}
+                            onSelect={() => handleDelete(String(dish.id))}
                             className="text-red-600"
                           >
                             <Trash2 className="mr-2 h-4 w-4" /> Deletar
@@ -558,7 +633,7 @@ export default function DishesPage() {
         </CardContent>
       </Card>
       
-      <Sheet open={!!selectedDish} onOpenChange={(open) => !open && setSelectedDish(null)}>
+      <Sheet open={!!selectedDish} onOpenChange={(open) => { if (!open) setSelectedDish(null); }}>
         <SheetContent className="sm:max-w-lg p-0">
            {selectedDish && <AnalysisPanel dish={selectedDish} />}
         </SheetContent>
