@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+
 const ingredientSchema = z.object({
   nome: z.string().min(1, 'Nome é obrigatório'),
   preco: z.coerce.number().min(0, 'Valor deve ser positivo'),
@@ -11,16 +12,12 @@ const ingredientSchema = z.object({
 
 export async function GET() {
   try {
-    const [rows] = await db.query(
-      'SELECT * FROM ingredientes ORDER BY nome ASC',
-    );
-
-    // Garante que o valorunit seja calculado, mesmo que não esteja no banco por algum motivo.
-    const ingredients = (rows as any[]).map((i) => ({
-      ...i,
-      valorunit: Number(i.preco) / Number(i.tam_pacote),
-    }));
-
+    // Usa a função getIngredients() que já tem toda a lógica necessária
+    const getIngredients = async () => {
+      const [ingredients] = await db.query('SELECT * FROM ingredientes');
+      return ingredients;
+    };
+    const ingredients = await getIngredients();
     return NextResponse.json(ingredients);
   } catch (error) {
     console.error('Falha ao buscar ingredientes:', error);
