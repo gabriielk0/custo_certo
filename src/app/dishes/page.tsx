@@ -547,47 +547,50 @@ export default function DishesPage() {
                           <Controller
                             name={`itens.${index}.item_id`}
                             control={form.control}
-                            render={({ field }) => (
-                              <Select
-                                onValueChange={(value) => {
-                                  const [id, type] = value.split('|');
-                                  form.setValue(
-                                    `itens.${index}.tipo_item`,
-                                    type as 'ingredient' | 'recipe',
-                                  );
-                                  field.onChange(id);
-                                }}
-                                defaultValue={
-                                  field.value
-                                    ? `${field.value}|${form.watch(
-                                        `itens.${index}.tipo_item`,
-                                      )}`
-                                    : ''
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {allIngredients.map((ing) => (
-                                    <SelectItem
-                                      key={`ing-${ing.id}`}
-                                      value={`${ing.id}|ingredient`}
-                                    >
-                                      {ing.nome} (Ingrediente Cru)
-                                    </SelectItem>
-                                  ))}
-                                  {allRecipes.map((rec) => (
-                                    <SelectItem
-                                      key={`rec-${rec.id}`}
-                                      value={`${rec.id}|recipe`}
-                                    >
-                                      {rec.nome} (Receita)
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            )}
+                            render={({ field }) => {
+                              const tipoField = form.watch(`itens.${index}.tipo_item`);
+                              const compositeValue = field.value
+                                ? `${field.value}|${tipoField ?? 'recipe'}`
+                                : '';
+                              return (
+                                <Select
+                                  value={compositeValue}
+                                  onValueChange={(value) => {
+                                    const [id, type] = value.split('|');
+                                    // atualiza tipo_item como string
+                                    form.setValue(
+                                      `itens.${index}.tipo_item`,
+                                      type as 'ingredient' | 'recipe',
+                                    );
+                                    // converte id para number (z.coerce.number espera number/string numérica)
+                                    const numericId = id === '' ? 0 : Number(id);
+                                    field.onChange(numericId);
+                                  }}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {allIngredients.map((ing) => (
+                                      <SelectItem
+                                        key={`ing-${ing.id}`}
+                                        value={`${ing.id}|ingredient`}
+                                      >
+                                        {ing.nome} (Ingrediente Cru)
+                                      </SelectItem>
+                                    ))}
+                                    {allRecipes.map((rec) => (
+                                      <SelectItem
+                                        key={`rec-${rec.id}`}
+                                        value={`${rec.id}|recipe`}
+                                      >
+                                        {rec.nome} (Receita)
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              );
+                            }}
                           />
                         </div>
                         <div className="w-24">

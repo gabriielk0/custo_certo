@@ -25,7 +25,7 @@ const createTables = async () => {
         );`);
   await db.execute(`
         CREATE TABLE IF NOT EXISTS receitas (
-            id VARCHAR(5) NOT NULL PRIMARY KEY,
+            id INT AUTO_INCREMENT PRIMARY KEY,
             nome VARCHAR(255),
             rendimento DECIMAL(10, 2),
             peso_bruto DECIMAL(10, 2),
@@ -98,7 +98,6 @@ const populateInitialData = async () => {
     if (recipeRows[0].count === 0) {
       const initialRecipes = [
         {
-          id: 1,
           nome: 'Arroz Cozido',
           rendimento: 1,
           peso_bruto: 1000,
@@ -112,7 +111,6 @@ const populateInitialData = async () => {
           ]),
         },
         {
-          id: 2,
           nome: 'Feijão Cozido',
           rendimento: 1,
           peso_bruto: 1200,
@@ -125,7 +123,6 @@ const populateInitialData = async () => {
           ]),
         },
         {
-          id: 3,
           nome: 'Carne Moída Refogada',
           rendimento: 0.8,
           peso_bruto: 1000,
@@ -139,7 +136,6 @@ const populateInitialData = async () => {
           ]),
         },
         {
-          id: 4,
           nome: 'Estrogonofe de Carne',
           rendimento: 1.2,
           peso_bruto: 1200,
@@ -157,9 +153,8 @@ const populateInitialData = async () => {
       ];
       for (const r of initialRecipes) {
         await db.query(
-          'INSERT INTO receitas (id, nome, rendimento, peso_bruto, unidade, custo_total, ingredientes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO receitas (nome, rendimento, peso_bruto, unidade, custo_total, ingredientes) VALUES (?, ?, ?, ?, ?, ?, ?)',
           [
-            r.id,
             r.nome,
             r.rendimento,
             r.peso_bruto,
@@ -182,8 +177,8 @@ const populateInitialData = async () => {
           custo_total: 15.65,
           preco_venda: 29.9,
           itens: JSON.stringify([
-            { item_id: 1, tipo_item: 'recipe', quantidade: 200 },
-            { item_id: 4, tipo_item: 'recipe', quantidade: 300 },
+            { item_id: 1000, tipo_item: 'recipe', quantidade: 200 }, // Corrigido para ID de Arroz Cozido
+            { item_id: 1003, tipo_item: 'recipe', quantidade: 300 }, // Corrigido para ID de Estrogonofe
             { item_id: 7, tipo_item: 'ingredient', quantidade: 50 },
           ]),
         },
@@ -270,6 +265,9 @@ const populateInitialData = async () => {
       await db.execute(
         `ALTER TABLE ingredientes MODIFY COLUMN id INT AUTO_INCREMENT PRIMARY KEY;`,
       );
+      await db.execute(
+        `ALTER TABLE receitas AUTO_INCREMENT = 1000;`,
+      );
       await db.execute(`ALTER TABLE receitas MODIFY COLUMN id INT AUTO_INCREMENT PRIMARY KEY;`);
       await db.execute(`ALTER TABLE pratos MODIFY COLUMN id INT AUTO_INCREMENT PRIMARY KEY;`);
       await db.execute(`ALTER TABLE despesas MODIFY COLUMN id INT AUTO_INCREMENT PRIMARY KEY;`);
@@ -280,5 +278,12 @@ const populateInitialData = async () => {
     await populateInitialData();
   } catch (error) {
     console.error('Erro ao inicializar o banco de dados:', error);
+  }
+
+  try {
+    await db.execute('ALTER TABLE pratos AUTO_INCREMENT = 10000;');
+  } catch (e) {
+    // ignora se não for possível (por exemplo em ambientes que não permitem)
+    console.warn('Não foi possível setar AUTO_INCREMENT para pratos:', (e as any).message);
   }
 })();
