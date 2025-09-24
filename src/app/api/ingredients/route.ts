@@ -2,7 +2,6 @@ import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-
 const ingredientSchema = z.object({
   nome: z.string().min(1, 'Nome é obrigatório'),
   preco: z.coerce.number().min(0, 'Valor deve ser positivo'),
@@ -12,12 +11,8 @@ const ingredientSchema = z.object({
 
 export async function GET() {
   try {
-    // Usa a função getIngredients() que já tem toda a lógica necessária
-    const getIngredients = async () => {
-      const [ingredients] = await db.query('SELECT * FROM ingredientes');
-      return ingredients;
-    };
-    const ingredients = await getIngredients();
+    const [ingredients] = await db.query('SELECT * FROM ingredientes');
+
     return NextResponse.json(ingredients);
   } catch (error) {
     console.error('Falha ao buscar ingredientes:', error);
