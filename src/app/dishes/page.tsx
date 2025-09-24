@@ -102,8 +102,19 @@ async function createDishApi(dish: Omit<Prato, 'id'>) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(dish),
   });
-  if (!res.ok) throw new Error('Falha ao criar prato');
-  return res.json();
+
+  const body = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    // tenta extrair mensagem de erro retornada pela API
+    const msg =
+      (body &&
+        (body.message || (body.errors ? JSON.stringify(body.errors) : null))) ||
+      `Erro ao criar prato (status ${res.status})`;
+    throw new Error(msg);
+  }
+
+  return body;
 }
 
 async function updateDishApi(id: number, dish: Omit<Prato, 'id'>) {
@@ -545,26 +556,36 @@ export default function DishesPage() {
                         <div className="flex-1">
                           <Label>Item (Ingrediente ou Receita)</Label>
                           <Controller
-                            name={`itens.${index}.item_id`}
+                            // Usamos um nome de campo "virtual" para o Controller
+                            name={`itens.${index}.composite_id` as any}
                             control={form.control}
                             render={({ field }) => {
-                              const tipoField = form.watch(`itens.${index}.tipo_item`);
-                              const compositeValue = field.value
-                                ? `${field.value}|${tipoField ?? 'recipe'}`
-                                : '';
+                              // Recria o valor composto a partir dos valores reais do formulário para exibição
+                              const itemId = form.watch(
+                                `itens.${index}.item_id`,
+                              );
+                              const itemType = form.watch(
+                                `itens.${index}.tipo_item`,
+                              );
+                              const currentValue =
+                                itemId && itemType
+                                  ? `${itemId}|${itemType}`
+                                  : '';
+
                               return (
                                 <Select
-                                  value={compositeValue}
+                                  value={currentValue}
                                   onValueChange={(value) => {
                                     const [id, type] = value.split('|');
-                                    // atualiza tipo_item como string
+                                    const numericId = Number(id);
+                                    form.setValue(
+                                      `itens.${index}.item_id`,
+                                      numericId,
+                                    );
                                     form.setValue(
                                       `itens.${index}.tipo_item`,
                                       type as 'ingredient' | 'recipe',
                                     );
-                                    // converte id para number (z.coerce.number espera number/string numérica)
-                                    const numericId = id === '' ? 0 : Number(id);
-                                    field.onChange(numericId);
                                   }}
                                 >
                                   <SelectTrigger>

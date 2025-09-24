@@ -135,7 +135,7 @@ export async function getDishes(): Promise<Prato[]> {
 }
 
 export async function addDish(data: Omit<Prato, 'id'>) {
-  await db.query(
+  const [result] = await db.query(
     'INSERT INTO pratos (nome, custo_total, preco_venda, itens) VALUES (?, ?, ?, ?)',
     [
       data.nome,
@@ -144,7 +144,32 @@ export async function addDish(data: Omit<Prato, 'id'>) {
       JSON.stringify(data.itens ?? []),
     ],
   );
+
+  const insertId = (result as any).insertId;
+  if (!insertId) {
+    // tenta retornar algo útil ou lançar
+    throw new Error('Não foi possível obter insertId ao criar prato');
+  }
+
+  const [newDishRows]: any[] = await db.query(
+    'SELECT * FROM pratos WHERE id = ?',
+    [insertId],
+  );
+
   revalidatePath('/dishes');
+  // garante que retornamos o objeto criado
+  return newDishRows && newDishRows[0]
+    ? ({
+        ...newDishRows[0],
+        custo_total: Number(newDishRows[0].custo_total ?? 0),
+        preco_venda: Number(newDishRows[0].preco_venda ?? 0),
+        itens:
+          typeof newDishRows[0].itens === 'string' &&
+          newDishRows[0].itens.length
+            ? JSON.parse(newDishRows[0].itens)
+            : newDishRows[0].itens ?? [],
+      } as Prato)
+    : null;
 }
 
 export async function updateDish(id: number, data: Omit<Prato, 'id'>) {

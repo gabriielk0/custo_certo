@@ -86,13 +86,14 @@ const populateInitialData = async () => {
         const valorunit =
           i.tam_pacote > 0 ? Number(i.preco) / Number(i.tam_pacote) : 0;
         await db.query(
-          'INSERT INTO ingredientes (id, nome, preco, tam_pacote, unit, valorunit) VALUES (?, ?, ?, ?, ?, ?)',
-          [i.id, i.nome, i.preco, i.tam_pacote, i.unit, valorunit],
+          'INSERT INTO ingredientes (nome, preco, tam_pacote, unit, valorunit) VALUES (?, ?, ?, ?, ?)',
+          [i.nome, i.preco, i.tam_pacote, i.unit, valorunit],
         );
       }
     }
 
     const [recipeRows]: any[] = await db.query(
+      // Movido para fora do if de ingredientes
       'SELECT COUNT(*) as count FROM receitas',
     );
     if (recipeRows[0].count === 0) {
@@ -153,7 +154,7 @@ const populateInitialData = async () => {
       ];
       for (const r of initialRecipes) {
         await db.query(
-          'INSERT INTO receitas (nome, rendimento, peso_bruto, unidade, custo_total, ingredientes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO receitas (nome, rendimento, peso_bruto, unidade, custo_total, ingredientes) VALUES (?, ?, ?, ?, ?, ?)',
           [
             r.nome,
             r.rendimento,
@@ -167,12 +168,13 @@ const populateInitialData = async () => {
     }
 
     const [dishRows]: any[] = await db.query(
+      // Movido para fora do if de ingredientes
       'SELECT COUNT(*) as count FROM pratos',
     );
     if (dishRows[0].count === 0) {
       const initialDishes = [
         {
-          id: 1,
+          id: 10000,
           nome: 'PF de Estrogonofe',
           custo_total: 15.65,
           preco_venda: 29.9,
@@ -185,13 +187,14 @@ const populateInitialData = async () => {
       ];
       for (const d of initialDishes) {
         await db.query(
-          'INSERT INTO pratos (id, nome, custo_total, preco_venda, itens) VALUES (?, ?, ?, ?, ?)',
-          [d.id, d.nome, d.custo_total, d.preco_venda, d.itens],
+          'INSERT INTO pratos (nome, custo_total, preco_venda, itens) VALUES (?, ?, ?, ?)',
+          [d.nome, d.custo_total, d.preco_venda, d.itens],
         );
       }
     }
 
     const [expenseRows]: any[] = await db.query(
+      // Movido para fora do if de ingredientes
       'SELECT COUNT(*) as count FROM despesas',
     );
     if (expenseRows[0].count === 0) {
@@ -239,8 +242,8 @@ const populateInitialData = async () => {
       ];
       for (const e of initialExpenses) {
         await db.query(
-          'INSERT INTO despesas (id, descricao, valor, tipo, categoria, data) VALUES (?, ?, ?, ?, ?, ?)',
-          [e.id, e.descricao, e.valor, e.tipo, e.categoria, e.data],
+          'INSERT INTO despesas (descricao, valor, tipo, categoria, data) VALUES (?, ?, ?, ?, ?)',
+          [e.descricao, e.valor, e.tipo, e.categoria, e.data],
         );
       }
     }
@@ -265,14 +268,21 @@ const populateInitialData = async () => {
       await db.execute(
         `ALTER TABLE ingredientes MODIFY COLUMN id INT AUTO_INCREMENT PRIMARY KEY;`,
       );
+      await db.execute(`ALTER TABLE receitas AUTO_INCREMENT = 1000;`);
       await db.execute(
-        `ALTER TABLE receitas AUTO_INCREMENT = 1000;`,
+        `ALTER TABLE receitas MODIFY COLUMN id INT AUTO_INCREMENT PRIMARY KEY;`,
       );
-      await db.execute(`ALTER TABLE receitas MODIFY COLUMN id INT AUTO_INCREMENT PRIMARY KEY;`);
-      await db.execute(`ALTER TABLE pratos MODIFY COLUMN id INT AUTO_INCREMENT PRIMARY KEY;`);
-      await db.execute(`ALTER TABLE despesas MODIFY COLUMN id INT AUTO_INCREMENT PRIMARY KEY;`);
+      await db.execute(
+        `ALTER TABLE pratos MODIFY COLUMN id INT AUTO_INCREMENT PRIMARY KEY;`,
+      );
+      await db.execute(
+        `ALTER TABLE despesas MODIFY COLUMN id INT AUTO_INCREMENT PRIMARY KEY;`,
+      );
     } catch (error: any) {
-      console.warn("Aviso: Não foi possível executar ALTER TABLE. Se o schema já estiver correto, este aviso pode ser ignorado.", (error as Error).message);
+      console.warn(
+        'Aviso: Não foi possível executar ALTER TABLE. Se o schema já estiver correto, este aviso pode ser ignorado.',
+        (error as Error).message,
+      );
     }
 
     await populateInitialData();
@@ -284,6 +294,9 @@ const populateInitialData = async () => {
     await db.execute('ALTER TABLE pratos AUTO_INCREMENT = 10000;');
   } catch (e) {
     // ignora se não for possível (por exemplo em ambientes que não permitem)
-    console.warn('Não foi possível setar AUTO_INCREMENT para pratos:', (e as any).message);
+    console.warn(
+      'Não foi possível setar AUTO_INCREMENT para pratos:',
+      (e as any).message,
+    );
   }
 })();
