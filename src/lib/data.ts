@@ -11,6 +11,68 @@ function isRowDataPacket(row: any): row is any[] {
   return Array.isArray(row);
 }
 
+/**
+ * Calcula o valor unitário (custo por g/ml/un) de um ingrediente.
+ * @param preco - O preço do pacote.
+ * @param tam_pacote - O tamanho do pacote.
+ * @param unit - A unidade de medida ('g', 'kg', 'ml', 'l', 'un').
+ * @returns O custo por unidade base (g/ml/un).
+ */
+function calcularValorUnitario(
+  preco: number,
+  tam_pacote: number,
+  unit: 'g' | 'kg' | 'ml' | 'l' | 'un',
+): number {
+  if (tam_pacote <= 0) return 0;
+  if (unit === 'kg' || unit === 'l') {
+    return preco / (tam_pacote * 1000);
+  }
+  return preco / tam_pacote;
+}
+
+/**
+ * Calcula o custo total de um prato com base em seus itens (ingredientes e receitas).
+ * @param itens - Array de itens do prato com ID, tipo e quantidade.
+ * @returns O custo total calculado do prato.
+ */
+async function calculateDishTotalCost(
+  itens: {
+    item_id: number;
+    tipo_item: 'ingredient' | 'recipe';
+    quantidade: number;
+  }[],
+): Promise<number> {
+  const ingredients = await getIngredients();
+  const recipes = await getRecipes();
+
+  const allItemsMap = new Map<string, Ingrediente | Receita>();
+  ingredients.forEach((ing) => allItemsMap.set(`ingredient-${ing.id}`, ing));
+  recipes.forEach((rec) => allItemsMap.set(`recipe-${rec.id}`, rec));
+
+  let totalCost = 0;
+  for (const item of itens) {
+    const key = `${item.tipo_item}-${item.item_id}`;
+    const selectedItem = allItemsMap.get(key);
+
+    if (!selectedItem || item.quantidade <= 0) continue;
+
+    let itemCostPerUnit = 0;
+    if ('valorunit' in selectedItem) {
+      // Ingrediente
+      itemCostPerUnit = selectedItem.valorunit ?? 0;
+    } else {
+      // Receita
+      const rec = selectedItem as Receita;
+      itemCostPerUnit =
+        rec.rendimento > 0
+          ? (rec.custo_total ?? 0) / (rec.rendimento * 1000)
+          : 0;
+    }
+    totalCost += itemCostPerUnit * item.quantidade;
+  }
+  return totalCost;
+}
+
 // Ingredients
 export async function getIngredients(): Promise<Ingrediente[]> {
   const [rows] = await db.query('SELECT * FROM ingredientes');
@@ -19,11 +81,12 @@ export async function getIngredients(): Promise<Ingrediente[]> {
   return ingredients.map((i) => {
     const preco = Number(i.preco ?? 0);
     const tam_pacote = Number(i.tam_pacote ?? 0);
+    const valorunit = calcularValorUnitario(preco, tam_pacote, i.unit);
     return {
       ...i,
       preco,
       tam_pacote,
-      valorunit: tam_pacote > 0 ? preco / tam_pacote : 0,
+      valorunit,
     } as Ingrediente;
   });
 }
@@ -31,22 +94,43 @@ export async function getIngredients(): Promise<Ingrediente[]> {
 export async function addIngredient(
   data: Omit<Ingrediente, 'id' | 'valorunit'>,
 ) {
-  await db.query(
-    'INSERT INTO ingredientes (nome, preco, tam_pacote, unit) VALUES (?, ?, ?, ?)',
-    [data.nome, data.preco, data.tam_pacote, data.unit],
+  const { preco, tam_pacote, unit } = data;
+  const valorunit = calcularValorUnitario(preco, tam_pacote, unit);
+  const [result] = await db.query(
+    'INSERT INTO ingredientes (nome, preco, tam_pacote, unit, valorunit) VALUES (?, ?, ?, ?, ?)',
+    [data.nome, data.preco, data.tam_pacote, data.unit, valorunit],
   );
+
+  const insertId = (result as any).insertId;
+  if (!insertId) {
+    return null;
+  }
+
+  const [newIngredientRows]: any[] = await db.query(
+    'SELECT * FROM ingredientes WHERE id = ?',
+    [insertId],
+  );
+
   revalidatePath('/ingredients');
   revalidatePath('/dishes');
   revalidatePath('/recipes');
+
+  const newIngredient = newIngredientRows[0]
+    ? (newIngredientRows[0] as Ingrediente)
+    : null;
+
+  return newIngredient;
 }
 
 export async function updateIngredient(
   id: number,
   data: Omit<Ingrediente, 'id' | 'valorunit'>,
 ) {
+  const { nome, preco, tam_pacote, unit } = data;
+  const valorunit = calcularValorUnitario(preco, tam_pacote, unit);
   await db.query(
-    'UPDATE ingredientes SET nome = ?, preco = ?, tam_pacote = ?, unit = ? WHERE id = ?',
-    [data.nome, data.preco, data.tam_pacote, data.unit, id],
+    'UPDATE ingredientes SET nome = ?, preco = ?, tam_pacote = ?, unit = ?, valorunit = ? WHERE id = ?',
+    [nome, preco, tam_pacote, unit, valorunit, id],
   );
   revalidatePath('/ingredients');
   revalidatePath('/dishes');
@@ -134,7 +218,8 @@ export async function getDishes(): Promise<Prato[]> {
   })) as Prato[];
 }
 
-export async function addDish(data: Omit<Prato, 'id'>) {
+export async function addDish(data: Omit<Prato, 'id' | 'custo_total'>) {
+  const custo_total = await calculateDishTotalCost(data.itens);
   const [result] = await db.query(
     'INSERT INTO pratos (nome, custo_total, preco_venda, itens) VALUES (?, ?, ?, ?)',
     [
@@ -172,7 +257,11 @@ export async function addDish(data: Omit<Prato, 'id'>) {
     : null;
 }
 
-export async function updateDish(id: number, data: Omit<Prato, 'id'>) {
+export async function updateDish(
+  id: number,
+  data: Omit<Prato, 'id' | 'custo_total'>,
+) {
+  const custo_total = await calculateDishTotalCost(data.itens);
   await db.query(
     'UPDATE pratos SET nome = ?, custo_total = ?, preco_venda = ?, itens = ? WHERE id = ?',
     [

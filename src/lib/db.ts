@@ -83,8 +83,13 @@ const populateInitialData = async () => {
         },
       ];
       for (const i of initialIngredients) {
+        // Converte para a unidade base (g/ml) antes de calcular o valor unitário
+        let base_tam_pacote = Number(i.tam_pacote);
+        if (i.unit === 'kg' || i.unit === 'l') {
+          base_tam_pacote *= 1000;
+        }
         const valorunit =
-          i.tam_pacote > 0 ? Number(i.preco) / Number(i.tam_pacote) : 0;
+          base_tam_pacote > 0 ? Number(i.preco) / base_tam_pacote : 0;
         await db.query(
           'INSERT INTO ingredientes (nome, preco, tam_pacote, unit, valorunit) VALUES (?, ?, ?, ?, ?)',
           [i.nome, i.preco, i.tam_pacote, i.unit, valorunit],

@@ -14,7 +14,7 @@ const dishSchema = z.object({
   nome: z.string().min(1),
   preco_venda: z.coerce.number().min(0),
   itens: z.array(dishItemSchema).min(1),
-  custo_total: z.number(),
+  // custo_total será calculado pelo backend
 });
 
 export async function GET() {
@@ -43,7 +43,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const newDish = await addDish(validation.data);
+    const newDish = await addDish(
+      validation.data as Omit<Prato, 'id' | 'custo_total'>,
+    );
 
     if (!newDish) {
       return NextResponse.json(

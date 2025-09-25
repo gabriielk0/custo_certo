@@ -1,3 +1,7 @@
+import {
+  getIngredients as getIngredientsData,
+  addIngredient,
+} from '@/lib/data';
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -11,8 +15,7 @@ const ingredientSchema = z.object({
 
 export async function GET() {
   try {
-    const [ingredients] = await db.query('SELECT * FROM ingredientes');
-
+    const ingredients = await getIngredientsData();
     return NextResponse.json(ingredients);
   } catch (error) {
     console.error('Falha ao buscar ingredientes:', error);
@@ -32,21 +35,16 @@ export async function POST(request: Request) {
       return NextResponse.json(validation.error.format(), { status: 400 });
     }
 
-    const { nome, preco, tam_pacote, unit } = validation.data;
-    const valorunit = preco / tam_pacote;
+    // Delega a criação e o cálculo para a função de acesso a dados
+    const newIngredient = await addIngredient(validation.data);
 
-    const [result] = await db.execute(
-      'INSERT INTO ingredientes (nome, preco, tam_pacote, unit, valorunit) VALUES (?, ?, ?, ?, ?)',
-      [nome, preco, tam_pacote, unit, valorunit],
-    );
-
-    const insertId = (result as any).insertId;
-    const [newIngredientRows]: any[] = await db.query(
-      'SELECT * FROM ingredientes WHERE id = ?',
-      [insertId],
-    );
-
-    return NextResponse.json(newIngredientRows[0], { status: 201 });
+    if (!newIngredient) {
+      return NextResponse.json(
+        { message: 'Erro ao obter dados do ingrediente criado' },
+        { status: 500 },
+      );
+    }
+    return NextResponse.json(newIngredient, { status: 201 });
   } catch (error) {
     console.error('Falha ao criar ingrediente:', error);
     return NextResponse.json(

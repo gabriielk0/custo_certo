@@ -96,7 +96,7 @@ async function fetchIngredientsAndRecipes(): Promise<{
   return { ingredients, recipes };
 }
 
-async function createDishApi(dish: Omit<Prato, 'id'>) {
+async function createDishApi(dish: Omit<Prato, 'id' | 'custo_total'>) {
   const res = await fetch('/api/dishes', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -117,7 +117,10 @@ async function createDishApi(dish: Omit<Prato, 'id'>) {
   return body;
 }
 
-async function updateDishApi(id: number, dish: Omit<Prato, 'id'>) {
+async function updateDishApi(
+  id: number,
+  dish: Omit<Prato, 'id' | 'custo_total'>,
+) {
   const res = await fetch(`/api/dishes/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -200,7 +203,10 @@ export default function DishesPage() {
       // It's a Recipe
       const rec = selectedItem as Receita;
       itemCostPerUnit =
-        rec.rendimento > 0 ? (rec.custo_total ?? 0) / rec.rendimento : 0;
+        // Converte rendimento (kg/l) para g/ml dividindo por 1000 para bater com a unidade de quantidade
+        rec.rendimento > 0
+          ? (rec.custo_total ?? 0) / (rec.rendimento * 1000)
+          : 0;
     }
 
     return acc + itemCostPerUnit * (item.quantidade ?? 0);
@@ -219,13 +225,14 @@ export default function DishesPage() {
   };
 
   const onSubmit = async (data: z.infer<typeof dishSchema>) => {
-    const dishData = { ...data, custo_total };
-
     try {
       if (editingDish && editingDish.id) {
-        await updateDishApi(editingDish.id, dishData as Omit<Prato, 'id'>);
+        await updateDishApi(
+          editingDish.id,
+          data as Omit<Prato, 'id' | 'custo_total'>,
+        );
       } else {
-        await createDishApi(dishData as Omit<Prato, 'id'>);
+        await createDishApi(data as Omit<Prato, 'id' | 'custo_total'>);
       }
       const updatedDishes = await fetchDishes();
       setDishes(updatedDishes);
@@ -244,7 +251,6 @@ export default function DishesPage() {
 
   const handleEdit = (dish: Prato) => {
     setEditingDish(dish);
-    // form.reset espera valores no mesmo shape do schema; garante que itens sejam strings
     form.reset({
       id: dish.id,
       nome: dish.nome,
@@ -539,13 +545,16 @@ export default function DishesPage() {
                         // Ingredient
                         itemCostPerUnit =
                           (selectedItem as Ingrediente).valorunit ?? 0;
+                        console.log('Ingredient', itemCostPerUnit);
                       } else {
                         // Recipe
                         const rec = selectedItem as Receita;
                         itemCostPerUnit =
+                          // Converte rendimento (kg/l) para g/ml dividindo por 1000
                           rec.rendimento > 0
-                            ? (rec.custo_total ?? 0) / rec.rendimento
+                            ? (rec.custo_total ?? 0) / (rec.rendimento * 1000)
                             : 0;
+                        console.log('Recipe', itemCostPerUnit);
                       }
                     }
                     const itemTotalCost =

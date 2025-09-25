@@ -1,5 +1,4 @@
 // Caminho do arquivo: src/app/api/recipes/route.ts
-
 import { getRecipes } from '@/lib/data';
 import { NextResponse } from 'next/server';
 
