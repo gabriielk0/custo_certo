@@ -1,6 +1,6 @@
 import {
-  getIngredients as getIngredientsData,
-  addIngredient,
+  obterIngredientes as getIngredientsData,
+  adicionarIngrediente,
 } from '@/lib/data';
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     // Delega a criação e o cálculo para a função de acesso a dados
-    const newIngredient = await addIngredient(validation.data);
+    const newIngredient = await adicionarIngrediente(validation.data);
 
     if (!newIngredient) {
       return NextResponse.json(

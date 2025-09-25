@@ -1,106 +1,103 @@
-"use client"
+'use client';
 
 // Inspired by react-hot-toast library
-import * as React from "react"
+import * as React from 'react';
 
-import type {
-  ToastActionElement,
-  ToastProps,
-} from "@/components/ui/toast"
+import type { ToastActionElement, ToastProps } from '@/components/ui/toast';
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const LIMITE_TORRADEIRA = 1;
+const ATRASO_REMOVER_TORRADEIRA = 1000000;
 
 type ToasterToast = ToastProps & {
-  id: string
-  title?: React.ReactNode
-  description?: React.ReactNode
-  action?: ToastActionElement
-}
+  id: string;
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  action?: ToastActionElement;
+};
 
-const actionTypes = {
-  ADD_TOAST: "ADD_TOAST",
-  UPDATE_TOAST: "UPDATE_TOAST",
-  DISMISS_TOAST: "DISMISS_TOAST",
-  REMOVE_TOAST: "REMOVE_TOAST",
-} as const
+const tiposDeAcao = {
+  ADICIONAR_TORRADEIRA: 'ADD_TOAST',
+  ATUALIZAR_TORRADEIRA: 'UPDATE_TOAST',
+  DISPENSAR_TORRADEIRA: 'DISMISS_TOAST',
+  REMOVER_TORRADEIRA: 'REMOVE_TOAST',
+} as const;
 
-let count = 0
+let count = 0;
 
 function genId() {
-  count = (count + 1) % Number.MAX_SAFE_INTEGER
-  return count.toString()
+  count = (count + 1) % Number.MAX_SAFE_INTEGER;
+  return count.toString();
 }
 
-type ActionType = typeof actionTypes
+type TipoAcao = typeof tiposDeAcao;
 
-type Action =
+type Acao =
   | {
-      type: ActionType["ADD_TOAST"]
-      toast: ToasterToast
+      type: TipoAcao['ADICIONAR_TORRADEIRA'];
+      toast: ToasterToast;
     }
   | {
-      type: ActionType["UPDATE_TOAST"]
-      toast: Partial<ToasterToast>
+      type: TipoAcao['ATUALIZAR_TORRADEIRA'];
+      toast: Partial<ToasterToast>;
     }
   | {
-      type: ActionType["DISMISS_TOAST"]
-      toastId?: ToasterToast["id"]
+      type: TipoAcao['DISPENSAR_TORRADEIRA'];
+      toastId?: ToasterToast['id'];
     }
   | {
-      type: ActionType["REMOVE_TOAST"]
-      toastId?: ToasterToast["id"]
-    }
+      type: TipoAcao['REMOVER_TORRADEIRA'];
+      toastId?: ToasterToast['id'];
+    };
 
-interface State {
-  toasts: ToasterToast[]
+interface Estado {
+  toasts: ToasterToast[];
 }
 
-const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
+const tempoLimiteTorradeira = new Map<string, ReturnType<typeof setTimeout>>();
 
-const addToRemoveQueue = (toastId: string) => {
-  if (toastTimeouts.has(toastId)) {
-    return
+const adicionarAFilaRemocao = (toastId: string) => {
+  if (tempoLimiteTorradeira.has(toastId)) {
+    return;
   }
 
   const timeout = setTimeout(() => {
-    toastTimeouts.delete(toastId)
-    dispatch({
-      type: "REMOVE_TOAST",
+    tempoLimiteTorradeira.delete(toastId);
+    despachar({
+      type: 'REMOVE_TOAST',
       toastId: toastId,
-    })
-  }, TOAST_REMOVE_DELAY)
+    });
+  }, ATRASO_REMOVER_TORRADEIRA);
 
-  toastTimeouts.set(toastId, timeout)
-}
+  tempoLimiteTorradeira.set(toastId, timeout);
+};
 
-export const reducer = (state: State, action: Action): State => {
+export const redutor = (state: Estado, action: Acao): Estado => {
   switch (action.type) {
-    case "ADD_TOAST":
+    case 'ADD_TOAST':
       return {
         ...state,
-        toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
-      }
+        toasts: [action.toast, ...state.toasts].slice(0, LIMITE_TORRADEIRA),
+      };
 
-    case "UPDATE_TOAST":
+    case 'UPDATE_TOAST':
       return {
         ...state,
         toasts: state.toasts.map((t) =>
-          t.id === action.toast.id ? { ...t, ...action.toast } : t
+          t.id === action.toast.id ? { ...t, ...action.toast } : t,
         ),
-      }
+      };
 
-    case "DISMISS_TOAST": {
-      const { toastId } = action
+    case 'DISMISS_TOAST': {
+      const { toastId } = action;
 
       // ! Side effects ! - This could be extracted into a dismissToast() action,
       // but I'll keep it here for simplicity
       if (toastId) {
-        addToRemoveQueue(toastId)
+        adicionarAFilaRemocao(toastId);
       } else {
         state.toasts.forEach((toast) => {
-          addToRemoveQueue(toast.id)
-        })
+          adicionarAFilaRemocao(toast.id);
+        });
       }
 
       return {
@@ -111,84 +108,85 @@ export const reducer = (state: State, action: Action): State => {
                 ...t,
                 open: false,
               }
-            : t
+            : t,
         ),
-      }
+      };
     }
-    case "REMOVE_TOAST":
+    case 'REMOVE_TOAST':
       if (action.toastId === undefined) {
         return {
           ...state,
           toasts: [],
-        }
+        };
       }
       return {
         ...state,
         toasts: state.toasts.filter((t) => t.id !== action.toastId),
-      }
+      };
   }
+};
+
+const ouvintes: Array<(state: Estado) => void> = [];
+
+let estadoMemoria: Estado = { toasts: [] };
+
+function despachar(action: Acao) {
+  estadoMemoria = redutor(estadoMemoria, action);
+  ouvintes.forEach((listener) => {
+    listener(estadoMemoria);
+  });
 }
 
-const listeners: Array<(state: State) => void> = []
+type Toast = Omit<ToasterToast, 'id'>;
 
-let memoryState: State = { toasts: [] }
-
-function dispatch(action: Action) {
-  memoryState = reducer(memoryState, action)
-  listeners.forEach((listener) => {
-    listener(memoryState)
-  })
-}
-
-type Toast = Omit<ToasterToast, "id">
-
-function toast({ ...props }: Toast) {
-  const id = genId()
+function torrada({ ...props }: Toast) {
+  const id = genId();
 
   const update = (props: ToasterToast) =>
-    dispatch({
-      type: "UPDATE_TOAST",
+    despachar({
+      type: 'UPDATE_TOAST',
       toast: { ...props, id },
-    })
-  const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
+    });
+  const dismiss = () => despachar({ type: 'DISMISS_TOAST', toastId: id });
 
-  dispatch({
-    type: "ADD_TOAST",
+  despachar({
+    type: 'ADD_TOAST',
     toast: {
       ...props,
       id,
       open: true,
       onOpenChange: (open) => {
-        if (!open) dismiss()
+        if (!open) dismiss();
       },
     },
-  })
+  });
 
   return {
     id: id,
     dismiss,
     update,
-  }
+  };
 }
 
-function useToast() {
-  const [state, setState] = React.useState<State>(memoryState)
+function useTorradeira() {
+  const [state, setState] = React.useState<Estado>(estadoMemoria);
 
   React.useEffect(() => {
-    listeners.push(setState)
+    ouvintes.push(setState);
     return () => {
-      const index = listeners.indexOf(setState)
+      const index = ouvintes.indexOf(setState);
       if (index > -1) {
-        listeners.splice(index, 1)
+        ouvintes.splice(index, 1);
       }
-    }
-  }, [state])
+    };
+  }, [state]);
 
   return {
     ...state,
-    toast,
-    dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
-  }
+    toast: torrada,
+    dismiss: (toastId?: string) =>
+      despachar({ type: 'DISMISS_TOAST', toastId }),
+  };
 }
 
-export { useToast, toast }
+export { useTorradeira as useToast, torrada as toast };

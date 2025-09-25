@@ -1,10 +1,10 @@
 // Caminho do arquivo: src/app/api/recipes/route.ts
-import { getRecipes } from '@/lib/data';
+import { obterReceitas } from '@/lib/data';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const recipes = await getRecipes();
+    const recipes = await obterReceitas();
     return NextResponse.json(recipes);
   } catch (error) {
     console.error('Falha ao buscar receitas:', error);

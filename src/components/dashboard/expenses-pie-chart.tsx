@@ -15,7 +15,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import { getExpenses } from '@/lib/data';
+import { obterDespesas } from '@/lib/data';
 import type { Despesa } from '@/lib/types';
 
 const COLORS = [
@@ -26,11 +26,11 @@ const COLORS = [
   'hsl(var(--chart-5))',
 ];
 
-export function ExpensesPieChart() {
+export function GraficoPizzaDespesas() {
   const [expenseData, setExpenseData] = React.useState<Despesa[]>([]);
 
   React.useEffect(() => {
-    getExpenses().then(setExpenseData);
+    obterDespesas().then(setExpenseData);
   }, []);
 
   const data = React.useMemo(() => {

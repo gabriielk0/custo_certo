@@ -9,20 +9,22 @@
  * - SuggestRecipePricesOutput - The return type for the suggestRecipePrices function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ia } from '@/ai/genkit';
+import { z } from 'genkit';
 
-const SuggestRecipePricesInputSchema = z.object({
+const EsquemaEntradaSugerirPrecosReceita = z.object({
   ingredientCosts: z
     .number()
     .describe('Total cost of ingredients for the recipe.'),
   fixedExpensesLast3Months: z
     .number()
-    .describe('Total fixed expenses (e.g., rent, utilities) over the last 3 months.'),
+    .describe(
+      'Total fixed expenses (e.g., rent, utilities) over the last 3 months.',
+    ),
   variableExpensesLast3Months: z
     .number()
     .describe(
-      'Total variable expenses (e.g., marketing, maintenance) over the last 3 months.'
+      'Total variable expenses (e.g., marketing, maintenance) over the last 3 months.',
     ),
   unitsSoldLast3Months: z
     .number()
@@ -31,30 +33,36 @@ const SuggestRecipePricesInputSchema = z.object({
     .number()
     .describe('The desired profit margin percentage (e.g., 0.2 for 20%).'),
 });
-export type SuggestRecipePricesInput = z.infer<typeof SuggestRecipePricesInputSchema>;
+export type EntradaSugerirPrecosReceita = z.infer<
+  typeof EsquemaEntradaSugerirPrecosReceita
+>;
 
-const SuggestRecipePricesOutputSchema = z.object({
+const EsquemaSaidaSugerirPrecosReceita = z.object({
   suggestedPriceRange: z
     .string()
     .describe(
-      'A suggested price range for the recipe, considering ingredient costs, fixed and variable expenses, and desired profit margin.'
+      'A suggested price range for the recipe, considering ingredient costs, fixed and variable expenses, and desired profit margin.',
     ),
   reasoning: z
     .string()
     .describe(
-      'Explanation of how the suggested price range was calculated, including the impact of each input factor.'
+      'Explanation of how the suggested price range was calculated, including the impact of each input factor.',
     ),
 });
-export type SuggestRecipePricesOutput = z.infer<typeof SuggestRecipePricesOutputSchema>;
+export type SaidaSugerirPrecosReceita = z.infer<
+  typeof EsquemaSaidaSugerirPrecosReceita
+>;
 
-export async function suggestRecipePrices(input: SuggestRecipePricesInput): Promise<SuggestRecipePricesOutput> {
-  return suggestRecipePricesFlow(input);
+export async function sugerirPrecosReceita(
+  input: EntradaSugerirPrecosReceita,
+): Promise<SaidaSugerirPrecosReceita> {
+  return fluxoSugerirPrecosReceita(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'suggestRecipePricesPrompt',
-  input: {schema: SuggestRecipePricesInputSchema},
-  output: {schema: SuggestRecipePricesOutputSchema},
+const prompt = ia.definePrompt({
+  name: 'sugerirPrecosReceitaPrompt',
+  input: { schema: EsquemaEntradaSugerirPrecosReceita },
+  output: { schema: EsquemaSaidaSugerirPrecosReceita },
   prompt: `You are a financial advisor for a restaurant. Based on the costs of ingredients, fixed costs, variable costs, units sold, and desired profit margin, suggest a price range for a recipe.
 
 Ingredient Costs: {{ingredientCosts}}
@@ -66,14 +74,14 @@ Desired Profit Margin: {{desiredProfitMargin}}
 Consider all these factors carefully and provide a suggested price range and reasoning.`,
 });
 
-const suggestRecipePricesFlow = ai.defineFlow(
+const fluxoSugerirPrecosReceita = ia.defineFlow(
   {
-    name: 'suggestRecipePricesFlow',
-    inputSchema: SuggestRecipePricesInputSchema,
-    outputSchema: SuggestRecipePricesOutputSchema,
+    name: 'fluxoSugerirPrecosReceita',
+    inputSchema: EsquemaEntradaSugerirPrecosReceita,
+    outputSchema: EsquemaSaidaSugerirPrecosReceita,
   },
-  async input => {
-    const {output} = await prompt(input);
+  async (input) => {
+    const { output } = await prompt(input);
     return output!;
-  }
+  },
 );

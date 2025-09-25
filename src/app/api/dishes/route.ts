@@ -1,5 +1,10 @@
 // src/app/api/dishes/route.ts
-import { getDishes, addDish, updateDish, deleteDish } from '@/lib/data';
+import {
+  obterPratos,
+  adicionarPrato,
+  atualizarPrato,
+  excluirPrato,
+} from '@/lib/data';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -19,7 +24,7 @@ const dishSchema = z.object({
 
 export async function GET() {
   try {
-    const dishes = await getDishes();
+    const dishes = await obterPratos();
     return NextResponse.json(dishes);
   } catch (error) {
     console.error('Falha ao buscar pratos:', error);
@@ -43,7 +48,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const newDish = await addDish(
+    const newDish = await adicionarPrato(
       validation.data as Omit<Prato, 'id' | 'custo_total'>,
     );
 

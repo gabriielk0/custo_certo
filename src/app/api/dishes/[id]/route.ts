@@ -1,4 +1,4 @@
-import { updateDish, deleteDish } from '@/lib/data';
+import { atualizarPrato, excluirPrato } from '@/lib/data';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -39,7 +39,7 @@ export async function PUT(
       );
     }
 
-    await updateDish(
+    await atualizarPrato(
       dishId,
       validation.data as Omit<Prato, 'id' | 'custo_total'>,
     );
@@ -60,7 +60,7 @@ export async function DELETE(
 ) {
   try {
     const dishId = Number(params.id);
-    await deleteDish(dishId);
+    await excluirPrato(dishId);
     return new Response(null, { status: 204 }); // No Content
   } catch (error) {
     console.error('Falha ao deletar prato:', error);

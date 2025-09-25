@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   BookCopy,
   Carrot,
@@ -9,49 +9,49 @@ import {
   DollarSign,
   LayoutDashboard,
   Lightbulb,
-} from "lucide-react";
+} from 'lucide-react';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-} from "@/components/ui/sidebar";
+} from '@/components/ui/sidebar';
 
 const links = [
   {
-    href: "/",
-    label: "Dashboard",
+    href: '/',
+    label: 'Dashboard',
     icon: LayoutDashboard,
   },
   {
-    href: "/dishes",
-    label: "Pratos",
+    href: '/dishes',
+    label: 'Pratos',
     icon: CookingPot,
   },
   {
-    href: "/recipes",
-    label: "Receitas & Produtos",
+    href: '/recipes',
+    label: 'Receitas & Produtos',
     icon: BookCopy,
   },
   {
-    href: "/ingredients",
-    label: "Ingredientes Crus",
+    href: '/ingredients',
+    label: 'Ingredientes Crus',
     icon: Carrot,
   },
   {
-    href: "/expenses",
-    label: "Despesas",
+    href: '/expenses',
+    label: 'Despesas',
     icon: DollarSign,
   },
   {
-    href: "/pricing-analysis",
-    label: "Análise de Preços",
+    href: '/pricing-analysis',
+    label: 'Análise de Preços',
     icon: Lightbulb,
   },
 ];
 
-export function MainNav() {
+export function NavegacaoPrincipal() {
   const pathname = usePathname();
 
   return (

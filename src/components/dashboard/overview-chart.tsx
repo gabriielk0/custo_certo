@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import {
   Card,
   CardContent,
@@ -42,12 +36,14 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function OverviewChart() {
+export function GraficoVisaoGeral() {
   return (
     <Card className="col-span-1 lg:col-span-2">
       <CardHeader>
         <CardTitle>Visão Geral</CardTitle>
-        <CardDescription>Faturamento e gastos dos últimos meses.</CardDescription>
+        <CardDescription>
+          Faturamento e gastos dos últimos meses.
+        </CardDescription>
       </CardHeader>
       <CardContent className="pl-2">
         <ChartContainer config={chartConfig} className="h-[350px] w-full">

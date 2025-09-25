@@ -7,7 +7,7 @@ import { db } from './db';
 import { revalidatePath } from 'next/cache';
 
 // Type guard for RowDataPacket
-function isRowDataPacket(row: any): row is any[] {
+function ehRowDataPacket(row: any): row is any[] {
   return Array.isArray(row);
 }
 
@@ -35,15 +35,15 @@ function calcularValorUnitario(
  * @param itens - Array de itens do prato com ID, tipo e quantidade.
  * @returns O custo total calculado do prato.
  */
-async function calculateDishTotalCost(
+async function calcularCustoTotalPrato(
   itens: {
     item_id: number;
     tipo_item: 'ingredient' | 'recipe';
     quantidade: number;
   }[],
 ): Promise<number> {
-  const ingredients = await getIngredients();
-  const recipes = await getRecipes();
+  const ingredients = await obterIngredientes();
+  const recipes = await obterReceitas();
 
   const allItemsMap = new Map<string, Ingrediente | Receita>();
   ingredients.forEach((ing) => allItemsMap.set(`ingredient-${ing.id}`, ing));
@@ -74,9 +74,9 @@ async function calculateDishTotalCost(
 }
 
 // Ingredients
-export async function getIngredients(): Promise<Ingrediente[]> {
+export async function obterIngredientes(): Promise<Ingrediente[]> {
   const [rows] = await db.query('SELECT * FROM ingredientes');
-  if (!isRowDataPacket(rows)) return [];
+  if (!ehRowDataPacket(rows)) return [];
   const ingredients = rows as any[];
   return ingredients.map((i) => {
     const preco = Number(i.preco ?? 0);
@@ -91,7 +91,7 @@ export async function getIngredients(): Promise<Ingrediente[]> {
   });
 }
 
-export async function addIngredient(
+export async function adicionarIngrediente(
   data: Omit<Ingrediente, 'id' | 'valorunit'>,
 ) {
   const { preco, tam_pacote, unit } = data;
@@ -122,7 +122,7 @@ export async function addIngredient(
   return newIngredient;
 }
 
-export async function updateIngredient(
+export async function atualizarIngrediente(
   id: number,
   data: Omit<Ingrediente, 'id' | 'valorunit'>,
 ) {
@@ -137,7 +137,7 @@ export async function updateIngredient(
   revalidatePath('/recipes');
 }
 
-export async function deleteIngredient(id: number) {
+export async function excluirIngrediente(id: number) {
   await db.query('DELETE FROM ingredientes WHERE id = ?', [id]);
   revalidatePath('/ingredients');
   revalidatePath('/dishes');
@@ -145,9 +145,9 @@ export async function deleteIngredient(id: number) {
 }
 
 // Recipes
-export async function getRecipes(): Promise<Receita[]> {
+export async function obterReceitas(): Promise<Receita[]> {
   const [rows] = await db.query('SELECT * FROM receitas');
-  if (!isRowDataPacket(rows)) return [];
+  if (!ehRowDataPacket(rows)) return [];
   return (rows as any[]).map((r) => {
     const parsedIngredientes =
       typeof r.ingredientes === 'string' && r.ingredientes.length
@@ -163,7 +163,7 @@ export async function getRecipes(): Promise<Receita[]> {
   });
 }
 
-export async function addRecipe(data: Omit<Receita, 'id'>) {
+export async function adicionarReceita(data: Omit<Receita, 'id'>) {
   await db.query(
     'INSERT INTO receitas (nome, rendimento, peso_bruto, unidade, custo_total, ingredientes) VALUES (?, ?, ?, ?, ?, ?)',
     [
@@ -180,7 +180,7 @@ export async function addRecipe(data: Omit<Receita, 'id'>) {
   // O ID agora é gerado pelo banco de dados, então não o retornamos diretamente aqui.
 }
 
-export async function updateRecipe(id: number, data: Omit<Receita, 'id'>) {
+export async function atualizarReceita(id: number, data: Omit<Receita, 'id'>) {
   await db.query(
     'UPDATE receitas SET nome = ?, rendimento = ?, peso_bruto = ?, unidade = ?, custo_total = ?, ingredientes = ? WHERE id = ?',
     [
@@ -197,16 +197,16 @@ export async function updateRecipe(id: number, data: Omit<Receita, 'id'>) {
   revalidatePath('/dishes');
 }
 
-export async function deleteRecipe(id: number) {
+export async function excluirReceita(id: number) {
   await db.query('DELETE FROM receitas WHERE id = ?', [id]);
   revalidatePath('/recipes');
   revalidatePath('/dishes');
 }
 
 // Dishes
-export async function getDishes(): Promise<Prato[]> {
+export async function obterPratos(): Promise<Prato[]> {
   const [rows] = await db.query('SELECT * FROM pratos');
-  if (!isRowDataPacket(rows)) return [];
+  if (!ehRowDataPacket(rows)) return [];
   return (rows as any[]).map((d) => ({
     ...d,
     custo_total: Number(d.custo_total ?? 0),
@@ -218,8 +218,8 @@ export async function getDishes(): Promise<Prato[]> {
   })) as Prato[];
 }
 
-export async function addDish(data: Omit<Prato, 'id' | 'custo_total'>) {
-  const custo_total = await calculateDishTotalCost(data.itens);
+export async function adicionarPrato(data: Omit<Prato, 'id' | 'custo_total'>) {
+  const custo_total = await calcularCustoTotalPrato(data.itens);
   const [result] = await db.query(
     'INSERT INTO pratos (nome, custo_total, preco_venda, itens) VALUES (?, ?, ?, ?)',
     [
@@ -257,11 +257,11 @@ export async function addDish(data: Omit<Prato, 'id' | 'custo_total'>) {
     : null;
 }
 
-export async function updateDish(
+export async function atualizarPrato(
   id: number,
   data: Omit<Prato, 'id' | 'custo_total'>,
 ) {
-  const custo_total = await calculateDishTotalCost(data.itens);
+  const custo_total = await calcularCustoTotalPrato(data.itens);
   await db.query(
     'UPDATE pratos SET nome = ?, custo_total = ?, preco_venda = ?, itens = ? WHERE id = ?',
     [
@@ -275,19 +275,19 @@ export async function updateDish(
   revalidatePath('/dishes');
 }
 
-export async function deleteDish(id: number) {
+export async function excluirPrato(id: number) {
   await db.query('DELETE FROM pratos WHERE id = ?', [id]);
   revalidatePath('/dishes');
 }
 
 // Expenses
-export async function getExpenses(): Promise<Despesa[]> {
+export async function obterDespesas(): Promise<Despesa[]> {
   const [rows] = await db.query('SELECT * FROM despesas');
-  if (!isRowDataPacket(rows)) return [];
+  if (!ehRowDataPacket(rows)) return [];
   return rows as any[] as Despesa[];
 }
 
-export async function addExpense(data: Omit<Despesa, 'id'>) {
+export async function adicionarDespesa(data: Omit<Despesa, 'id'>) {
   await db.query(
     'INSERT INTO despesas (descricao, valor, tipo, categoria, data) VALUES (?, ?, ?, ?, ?)',
     [data.descricao, data.valor, data.tipo, data.categoria, data.data],
@@ -295,7 +295,7 @@ export async function addExpense(data: Omit<Despesa, 'id'>) {
   revalidatePath('/expenses');
 }
 
-export async function updateExpense(id: number, data: Omit<Despesa, 'id'>) {
+export async function atualizarDespesa(id: number, data: Omit<Despesa, 'id'>) {
   await db.query(
     'UPDATE despesas SET descricao = ?, valor = ?, tipo = ?, categoria = ?, data = ? WHERE id = ?',
     [data.descricao, data.valor, data.tipo, data.categoria, data.data, id],
@@ -303,15 +303,15 @@ export async function updateExpense(id: number, data: Omit<Despesa, 'id'>) {
   revalidatePath('/expenses');
 }
 
-export async function deleteExpense(id: number) {
+export async function excluirDespesa(id: number) {
   await db.query('DELETE FROM despesas WHERE id = ?', [id]);
   revalidatePath('/expenses');
 }
 
 // Used for client components
-export async function getAllIngredientsAndRecipes() {
-  const ingredients = await getIngredients();
-  const recipes = await getRecipes();
+export async function obterTodosIngredientesEReceitas() {
+  const ingredients = await obterIngredientes();
+  const recipes = await obterReceitas();
   return { ingredients, recipes };
 }
 // ...existing code...

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import { Toaster } from '@/components/ui/toaster';
-import { PageHeader } from '@/components/page-header';
-import { MainNav } from '@/components/main-nav';
+import { Torradeira } from '@/components/ui/toaster';
+import { CabecalhoPagina } from '@/components/page-header';
+import { NavegacaoPrincipal } from '@/components/main-nav';
 import {
   Sidebar,
   SidebarContent,
@@ -45,23 +45,26 @@ export default function RootLayout({
               className="border-r bg-card"
             >
               <SidebarHeader className="border-b">
-                <Link href="/" className="flex items-center gap-2 font-semibold">
+                <Link
+                  href="/"
+                  className="flex items-center gap-2 font-semibold"
+                >
                   <UtensilsCrossed className="h-6 w-6 text-primary" />
                   <span className="text-lg">Custo Certo</span>
                 </Link>
               </SidebarHeader>
               <SidebarContent>
-                <MainNav />
+                <NavegacaoPrincipal />
               </SidebarContent>
             </Sidebar>
             <div className="flex flex-1 flex-col">
-              <PageHeader />
+              <CabecalhoPagina />
               <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
                 {children}
               </main>
             </div>
           </div>
-          <Toaster />
+          <Torradeira />
         </SidebarProvider>
       </body>
     </html>

@@ -49,11 +49,11 @@ import {
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  getRecipes,
-  getIngredients,
-  addRecipe,
-  updateRecipe,
-  deleteRecipe,
+  obterReceitas,
+  obterIngredientes,
+  adicionarReceita,
+  atualizarReceita,
+  excluirReceita,
 } from '@/lib/data';
 import type { Receita, Ingrediente } from '@/lib/types';
 
@@ -80,8 +80,8 @@ export default function RecipesPage() {
   const [editingRecipe, setEditingRecipe] = useState<Receita | null>(null);
 
   useEffect(() => {
-    getRecipes().then(setRecipes);
-    getIngredients().then(setAllIngredients);
+    obterReceitas().then(setRecipes);
+    obterIngredientes().then(setAllIngredients);
   }, []);
 
   const form = useForm<z.infer<typeof recipeSchema>>({
@@ -107,12 +107,15 @@ export default function RecipesPage() {
     const recipeData = { ...data, custo_total };
 
     if (editingRecipe) {
-      await updateRecipe(editingRecipe.id, recipeData as Omit<Receita, 'id'>);
+      await atualizarReceita(
+        editingRecipe.id,
+        recipeData as Omit<Receita, 'id'>,
+      );
     } else {
-      await addRecipe(recipeData as Omit<Receita, 'id'>);
+      await adicionarReceita(recipeData as Omit<Receita, 'id'>);
     }
 
-    const updatedRecipes = await getRecipes();
+    const updatedRecipes = await obterReceitas();
     setRecipes(updatedRecipes);
     setEditingRecipe(null);
     form.reset({
@@ -132,8 +135,8 @@ export default function RecipesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    await deleteRecipe(id);
-    const updatedRecipes = await getRecipes();
+    await excluirReceita(id);
+    const updatedRecipes = await obterReceitas();
     setRecipes(updatedRecipes);
   };
 

@@ -74,13 +74,13 @@ const dishSchema = z.object({
 });
 
 /* Client-side fetch helpers (substituem import de funções server) */
-async function fetchDishes(): Promise<Prato[]> {
+async function buscarPratos(): Promise<Prato[]> {
   const res = await fetch('/api/dishes');
   if (!res.ok) throw new Error('Falha ao buscar pratos');
   return res.json();
 }
 
-async function fetchIngredientsAndRecipes(): Promise<{
+async function buscarIngredientesEReceitas(): Promise<{
   ingredients: Ingrediente[];
   recipes: Receita[];
 }> {
@@ -96,7 +96,7 @@ async function fetchIngredientsAndRecipes(): Promise<{
   return { ingredients, recipes };
 }
 
-async function createDishApi(dish: Omit<Prato, 'id' | 'custo_total'>) {
+async function criarPratoApi(dish: Omit<Prato, 'id' | 'custo_total'>) {
   const res = await fetch('/api/dishes', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -117,7 +117,7 @@ async function createDishApi(dish: Omit<Prato, 'id' | 'custo_total'>) {
   return body;
 }
 
-async function updateDishApi(
+async function atualizarPratoApi(
   id: number,
   dish: Omit<Prato, 'id' | 'custo_total'>,
 ) {
@@ -130,7 +130,7 @@ async function updateDishApi(
   return res.json();
 }
 
-async function deleteDishApi(id: number) {
+async function deletarPratoApi(id: number) {
   const res = await fetch(`/api/dishes/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
@@ -138,36 +138,36 @@ async function deleteDishApi(id: number) {
   return true;
 }
 
-export default function DishesPage() {
-  const [dishes, setDishes] = useState<Prato[]>([]);
-  const [allItems, setAllItems] = useState<(Ingrediente | Receita)[]>([]);
-  const [allIngredients, setAllIngredients] = useState<Ingrediente[]>([]);
-  const [allRecipes, setAllRecipes] = useState<Receita[]>([]);
+export default function PaginaPratos() {
+  const [pratos, setPratos] = useState<Prato[]>([]);
+  const [todosItens, setTodosItens] = useState<(Ingrediente | Receita)[]>([]);
+  const [todosIngredientes, setTodosIngredientes] = useState<Ingrediente[]>([]);
+  const [todasReceitas, setTodasReceitas] = useState<Receita[]>([]);
 
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingDish, setEditingDish] = useState<Prato | null>(null);
-  const [selectedDish, setSelectedDish] = useState<Prato | null>(null);
+  const [formularioAberto, setFormularioAberto] = useState(false);
+  const [pratoEmEdicao, setPratoEmEdicao] = useState<Prato | null>(null);
+  const [pratoSelecionado, setPratoSelecionado] = useState<Prato | null>(null);
 
   useEffect(() => {
-    async function fetchData() {
+    async function buscarDados() {
       try {
-        const [dishesData, itemsData] = await Promise.all([
-          fetchDishes(),
-          fetchIngredientsAndRecipes(),
+        const [dadosPratos, dadosItens] = await Promise.all([
+          buscarPratos(),
+          buscarIngredientesEReceitas(),
         ]);
-        setDishes(dishesData);
-        setAllIngredients(itemsData.ingredients);
-        setAllRecipes(itemsData.recipes);
-        setAllItems([...itemsData.ingredients, ...itemsData.recipes]);
+        setPratos(dadosPratos);
+        setTodosIngredientes(dadosItens.ingredients);
+        setTodasReceitas(dadosItens.recipes);
+        setTodosItens([...dadosItens.ingredients, ...dadosItens.recipes]);
       } catch (err) {
         console.warn('Erro ao carregar dados de pratos:', err);
-        setDishes([]);
-        setAllIngredients([]);
-        setAllRecipes([]);
-        setAllItems([]);
+        setPratos([]);
+        setTodosIngredientes([]);
+        setTodasReceitas([]);
+        setTodosItens([]);
       }
     }
-    fetchData();
+    buscarDados();
   }, []);
 
   const form = useForm<z.infer<typeof dishSchema>>({
@@ -183,25 +183,25 @@ export default function DishesPage() {
     name: 'itens',
   });
 
-  const watchedItems = form.watch('itens');
-  const watchedSellingPrice = form.watch('preco_venda');
+  const itensObservados = form.watch('itens');
+  const precoVendaObservado = form.watch('preco_venda');
 
-  const custo_total = watchedItems.reduce((acc, item) => {
+  const custo_total = itensObservados.reduce((acc, item) => {
     if (!item.item_id || !item.quantidade) return acc;
-    const selectedItem = allItems.find(
+    const itemSelecionado = todosItens.find(
       (i) =>
         (i as any).id === item.item_id &&
         ('valorunit' in i ? 'ingredient' : 'recipe') === item.tipo_item,
     );
-    if (!selectedItem) return acc;
+    if (!itemSelecionado) return acc;
 
     let itemCostPerUnit = 0;
-    if ('valorunit' in selectedItem) {
+    if ('valorunit' in itemSelecionado) {
       // It's an Ingredient
-      itemCostPerUnit = (selectedItem as Ingrediente).valorunit ?? 0;
+      itemCostPerUnit = (itemSelecionado as Ingrediente).valorunit ?? 0;
     } else {
       // It's a Recipe
-      const rec = selectedItem as Receita;
+      const rec = itemSelecionado as Receita;
       itemCostPerUnit =
         // Converte rendimento (kg/l) para g/ml dividindo por 1000 para bater com a unidade de quantidade
         rec.rendimento > 0
@@ -212,110 +212,110 @@ export default function DishesPage() {
     return acc + itemCostPerUnit * (item.quantidade ?? 0);
   }, 0);
 
-  const profitMargin =
-    watchedSellingPrice > 0
-      ? (watchedSellingPrice - custo_total) / watchedSellingPrice
+  const margemDeLucro =
+    precoVendaObservado > 0
+      ? (precoVendaObservado - custo_total) / precoVendaObservado
       : 0;
 
-  const handleMarginChange = (margin: number) => {
+  const lidarComMudancaMargem = (margin: number) => {
     if (custo_total > 0) {
       const newPrice = custo_total / (1 - margin);
       form.setValue('preco_venda', parseFloat(newPrice.toFixed(2)));
     }
   };
 
-  const onSubmit = async (data: z.infer<typeof dishSchema>) => {
+  const aoSubmeter = async (data: z.infer<typeof dishSchema>) => {
     try {
-      if (editingDish && editingDish.id) {
-        await updateDishApi(
-          editingDish.id,
+      if (pratoEmEdicao && pratoEmEdicao.id) {
+        await atualizarPratoApi(
+          pratoEmEdicao.id,
           data as Omit<Prato, 'id' | 'custo_total'>,
         );
       } else {
-        await createDishApi(data as Omit<Prato, 'id' | 'custo_total'>);
+        await criarPratoApi(data as Omit<Prato, 'id' | 'custo_total'>);
       }
-      const updatedDishes = await fetchDishes();
-      setDishes(updatedDishes);
-      setEditingDish(null);
+      const pratosAtualizados = await buscarPratos();
+      setPratos(pratosAtualizados);
+      setPratoEmEdicao(null);
       form.reset({
         nome: '',
         preco_venda: 0,
         itens: [{ item_id: 0, tipo_item: 'recipe', quantidade: 0 }],
       });
-      setIsFormOpen(false);
+      setFormularioAberto(false);
     } catch (err) {
       console.error('Erro ao salvar prato:', err);
       // aqui você pode mostrar toast / mensagem de erro
     }
   };
 
-  const handleEdit = (dish: Prato) => {
-    setEditingDish(dish);
+  const lidarComEdicao = (dish: Prato) => {
+    setPratoEmEdicao(dish);
     form.reset({
       id: dish.id,
       nome: dish.nome,
       preco_venda: dish.preco_venda,
       itens: (dish.itens || []).map((it) => ({ ...it, item_id: it.item_id })),
     });
-    setIsFormOpen(true);
+    setFormularioAberto(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const lidarComDelecao = async (id: number) => {
     try {
-      await deleteDishApi(id);
-      const updatedDishes = await fetchDishes();
-      setDishes(updatedDishes);
+      await deletarPratoApi(id);
+      const pratosAtualizados = await buscarPratos();
+      setPratos(pratosAtualizados);
     } catch (err) {
       console.error('Erro ao deletar prato:', err);
     }
   };
 
-  const handleOpenForm = (open: boolean) => {
+  const lidarComAberturaFormulario = (open: boolean) => {
     if (!open) {
       form.reset({
         nome: '',
         preco_venda: 0,
         itens: [{ item_id: 0, tipo_item: 'recipe', quantidade: 0 }],
       });
-      setEditingDish(null);
+      setPratoEmEdicao(null);
     }
-    setIsFormOpen(open);
+    setFormularioAberto(open);
   };
 
-  const handleSelectDish = (dish: Prato) => {
-    setSelectedDish(dish);
+  const lidarComSelecaoPrato = (dish: Prato) => {
+    setPratoSelecionado(dish);
   };
 
-  const formatCurrency = (value: number) => {
+  const formatarMoeda = (value: number) => {
     return value.toLocaleString('pt-BR', {
       style: 'currency',
       currency: 'BRL',
     });
   };
 
-  const formatPercent = (value: number) => {
+  const formatarPercentual = (value: number) => {
     return value.toLocaleString('pt-BR', {
       style: 'percent',
       minimumFractionDigits: 2,
     });
   };
 
-  const AnalysisPanel = ({ dish }: { dish: Prato }) => {
+  const PainelDeAnalise = ({ dish }: { dish: Prato }) => {
     if (!dish) return null;
-    const initialMargin =
+    const margemInicial =
       dish.preco_venda > 0
         ? (dish.preco_venda - dish.custo_total) / dish.preco_venda
         : 0.3;
-    const [desiredMargin, setDesiredMargin] = useState(
-      initialMargin > 0 ? initialMargin : 0.3,
+    const [margemDesejada, setMargemDesejada] = useState(
+      margemInicial > 0 ? margemInicial : 0.3,
     );
 
-    const actualProfit = dish.preco_venda - dish.custo_total;
-    const actualProfitMargin =
-      dish.preco_venda > 0 ? actualProfit / dish.preco_venda : 0;
+    const lucroReal = dish.preco_venda - dish.custo_total;
+    const margemDeLucroReal =
+      dish.preco_venda > 0 ? lucroReal / dish.preco_venda : 0;
 
-    const suggestedPrice = dish.custo_total / (1 - desiredMargin);
-    const suggestedProfit = suggestedPrice - dish.custo_total;
+    const precoSugerido = dish.custo_total / (1 - margemDesejada);
+    const lucroSugerido = precoSugerido - dish.custo_total;
 
     return (
       <div className="flex flex-col h-full">
@@ -339,7 +339,7 @@ export default function DishesPage() {
                     Preço de Venda (Praticado)
                   </span>
                   <span className="font-bold text-lg">
-                    {formatCurrency(dish.preco_venda)}
+                    {formatarMoeda(dish.preco_venda)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -347,7 +347,7 @@ export default function DishesPage() {
                     Custo Total dos Insumos
                   </span>
                   <span className="font-bold text-lg">
-                    {formatCurrency(dish.custo_total)}
+                    {formatarMoeda(dish.custo_total)}
                   </span>
                 </div>
                 <hr />
@@ -357,10 +357,10 @@ export default function DishesPage() {
                   </span>
                   <span
                     className={`font-bold text-lg ${
-                      actualProfit >= 0 ? 'text-green-600' : 'text-red-600'
+                      lucroReal >= 0 ? 'text-green-600' : 'text-red-600'
                     }`}
                   >
-                    {formatCurrency(actualProfit)}
+                    {formatarMoeda(lucroReal)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -369,10 +369,10 @@ export default function DishesPage() {
                   </span>
                   <span
                     className={`font-bold text-lg ${
-                      actualProfit >= 0 ? 'text-green-600' : 'text-red-600'
+                      lucroReal >= 0 ? 'text-green-600' : 'text-red-600'
                     }`}
                   >
-                    {formatPercent(actualProfitMargin)}
+                    {formatarPercentual(margemDeLucroReal)}
                   </span>
                 </div>
               </CardContent>
@@ -388,19 +388,19 @@ export default function DishesPage() {
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"
-                      value={(desiredMargin * 100).toFixed(2)}
+                      value={(margemDesejada * 100).toFixed(2)}
                       onChange={(e) => {
                         const value = parseFloat(e.target.value);
                         if (!isNaN(value)) {
-                          setDesiredMargin(value / 100);
+                          setMargemDesejada(value / 100);
                         }
                       }}
                       onBlur={(e) => {
                         const value = parseFloat(e.target.value);
                         if (isNaN(value)) {
-                          setDesiredMargin(0);
+                          setMargemDesejada(0);
                         } else {
-                          setDesiredMargin(
+                          setMargemDesejada(
                             Math.max(0, Math.min(100, value)) / 100,
                           );
                         }
@@ -413,8 +413,8 @@ export default function DishesPage() {
                     <span className="text-muted-foreground">%</span>
                   </div>
                   <Slider
-                    value={[desiredMargin]}
-                    onValueChange={(values) => setDesiredMargin(values[0])}
+                    value={[margemDesejada]}
+                    onValueChange={(values) => setMargemDesejada(values[0])}
                     max={1}
                     step={0.01}
                     className="my-4"
@@ -426,7 +426,7 @@ export default function DishesPage() {
                     Preço de Venda Sugerido
                   </span>
                   <span className="font-bold text-xl text-primary">
-                    {formatCurrency(suggestedPrice)}
+                    {formatarMoeda(precoSugerido)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -435,10 +435,10 @@ export default function DishesPage() {
                   </span>
                   <span
                     className={`font-bold text-lg ${
-                      suggestedProfit >= 0 ? 'text-green-600' : 'text-red-600'
+                      lucroSugerido >= 0 ? 'text-green-600' : 'text-red-600'
                     }`}
                   >
-                    {formatCurrency(suggestedProfit)}
+                    {formatarMoeda(lucroSugerido)}
                   </span>
                 </div>
               </CardContent>
@@ -446,7 +446,7 @@ export default function DishesPage() {
           </div>
         </ScrollArea>
         <SheetFooter className="p-6 border-t">
-          <Button variant="outline" onClick={() => setSelectedDish(null)}>
+          <Button variant="outline" onClick={() => setPratoSelecionado(null)}>
             Fechar
           </Button>
         </SheetFooter>
@@ -463,7 +463,10 @@ export default function DishesPage() {
             Crie e gerencie os pratos para venda.
           </p>
         </div>
-        <Dialog open={isFormOpen} onOpenChange={handleOpenForm}>
+        <Dialog
+          open={formularioAberto}
+          onOpenChange={lidarComAberturaFormulario}
+        >
           <DialogTrigger asChild>
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -471,10 +474,10 @@ export default function DishesPage() {
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-4xl">
-            <form onSubmit={form.handleSubmit(onSubmit)}>
+            <form onSubmit={form.handleSubmit(aoSubmeter)}>
               <DialogHeader>
                 <DialogTitle>
-                  {editingDish ? 'Editar' : 'Criar'} Prato
+                  {pratoEmEdicao ? 'Editar' : 'Criar'} Prato
                 </DialogTitle>
                 <DialogDescription>
                   Preencha os detalhes do prato. O custo será calculado
@@ -511,11 +514,11 @@ export default function DishesPage() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={(profitMargin * 100).toFixed(2)}
+                      value={(margemDeLucro * 100).toFixed(2)}
                       onChange={(e) => {
                         const value = parseFloat(e.target.value);
                         if (!isNaN(value)) {
-                          handleMarginChange(value / 100);
+                          lidarComMudancaMargem(value / 100);
                         }
                       }}
                     />
@@ -528,27 +531,27 @@ export default function DishesPage() {
                     <div className="text-sm">
                       Custo Total:{' '}
                       <span className="font-bold">
-                        {formatCurrency(custo_total)}
+                        {formatarMoeda(custo_total)}
                       </span>
                     </div>
                   </div>
                   {fields.map((item, index) => {
-                    const selectedItem = allItems.find(
+                    const itemSelecionado = todosItens.find(
                       (i) =>
-                        (i as any).id == watchedItems[index]?.item_id &&
+                        (i as any).id == itensObservados[index]?.item_id &&
                         ('valorunit' in i ? 'ingredient' : 'recipe') ===
-                          watchedItems[index]?.tipo_item,
+                          itensObservados[index]?.tipo_item,
                     );
                     let itemCostPerUnit = 0;
-                    if (selectedItem) {
-                      if ('valorunit' in selectedItem) {
+                    if (itemSelecionado) {
+                      if ('valorunit' in itemSelecionado) {
                         // Ingredient
                         itemCostPerUnit =
-                          (selectedItem as Ingrediente).valorunit ?? 0;
+                          (itemSelecionado as Ingrediente).valorunit ?? 0;
                         console.log('Ingredient', itemCostPerUnit);
                       } else {
                         // Recipe
-                        const rec = selectedItem as Receita;
+                        const rec = itemSelecionado as Receita;
                         itemCostPerUnit =
                           // Converte rendimento (kg/l) para g/ml dividindo por 1000
                           rec.rendimento > 0
@@ -558,7 +561,8 @@ export default function DishesPage() {
                       }
                     }
                     const itemTotalCost =
-                      itemCostPerUnit * (watchedItems[index]?.quantidade || 0);
+                      itemCostPerUnit *
+                      (itensObservados[index]?.quantidade || 0);
 
                     return (
                       <div key={item.id} className="flex gap-2 items-end mb-2">
@@ -601,7 +605,7 @@ export default function DishesPage() {
                                     <SelectValue placeholder="Selecione..." />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {allIngredients.map((ing) => (
+                                    {todosIngredientes.map((ing) => (
                                       <SelectItem
                                         key={`ing-${ing.id}`}
                                         value={`${ing.id}|ingredient`}
@@ -609,7 +613,7 @@ export default function DishesPage() {
                                         {ing.nome} (Ingrediente Cru)
                                       </SelectItem>
                                     ))}
-                                    {allRecipes.map((rec) => (
+                                    {todasReceitas.map((rec) => (
                                       <SelectItem
                                         key={`rec-${rec.id}`}
                                         value={`${rec.id}|recipe`}
@@ -639,7 +643,7 @@ export default function DishesPage() {
                             type="text"
                             readOnly
                             disabled
-                            value={formatCurrency(itemTotalCost)}
+                            value={formatarMoeda(itemTotalCost)}
                             className="bg-muted"
                           />
                         </div>
@@ -703,7 +707,7 @@ export default function DishesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {dishes.map((dish) => {
+              {pratos.map((dish) => {
                 const profit = dish.preco_venda - dish.custo_total;
                 return (
                   <TableRow key={dish.id}>
@@ -711,16 +715,16 @@ export default function DishesPage() {
                       {dish.id}
                     </TableCell>
                     <TableCell className="font-medium">{dish.nome}</TableCell>
-                    <TableCell>{formatCurrency(dish.custo_total)}</TableCell>
+                    <TableCell>{formatarMoeda(dish.custo_total)}</TableCell>
                     <TableCell className="font-semibold">
-                      {formatCurrency(dish.preco_venda)}
+                      {formatarMoeda(dish.preco_venda)}
                     </TableCell>
                     <TableCell
                       className={
                         profit >= 0 ? 'text-green-600' : 'text-red-600'
                       }
                     >
-                      {formatCurrency(profit)}
+                      {formatarMoeda(profit)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -728,7 +732,7 @@ export default function DishesPage() {
                           aria-haspopup="true"
                           size="icon"
                           variant="ghost"
-                          onClick={() => handleSelectDish(dish)}
+                          onClick={() => lidarComSelecaoPrato(dish)}
                         >
                           <Eye className="h-4 w-4" />
                           <span className="sr-only">Analisar prato</span>
@@ -749,13 +753,13 @@ export default function DishesPage() {
                             <DropdownMenuItem
                               onSelect={(e) => {
                                 e.preventDefault();
-                                handleEdit(dish);
+                                lidarComEdicao(dish);
                               }}
                             >
                               <Pencil className="mr-2 h-4 w-4" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onSelect={() => handleDelete(dish.id)}
+                              onSelect={() => lidarComDelecao(dish.id)}
                               className="text-red-600"
                             >
                               <Trash2 className="mr-2 h-4 w-4" /> Deletar
@@ -773,13 +777,13 @@ export default function DishesPage() {
       </Card>
 
       <Sheet
-        open={!!selectedDish}
+        open={!!pratoSelecionado}
         onOpenChange={(open) => {
-          if (!open) setSelectedDish(null);
+          if (!open) setPratoSelecionado(null);
         }}
       >
         <SheetContent className="sm:max-w-lg p-0">
-          {selectedDish && <AnalysisPanel dish={selectedDish} />}
+          {pratoSelecionado && <PainelDeAnalise dish={pratoSelecionado} />}
         </SheetContent>
       </Sheet>
     </div>
